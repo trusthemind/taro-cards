@@ -1,4 +1,4 @@
-import { TarotReading } from '@/components/tarot-reading'
+import { TarotReading } from '@/widgets/tarot-reading'
 
 export default function Home() {
   return <TarotReading />
