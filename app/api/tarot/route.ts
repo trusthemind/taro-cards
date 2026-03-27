@@ -4,31 +4,45 @@ import {
   streamText,
   UIMessage,
 } from 'ai'
-import { TarotCard } from '@/lib/tarot-data'
+import { openai } from '@ai-sdk/openai'
+import type { TarotCardType } from '@/entities/tarot-card'
 
 export const maxDuration = 30
 
 export async function POST(req: Request) {
-  const { messages, cards }: { messages: UIMessage[], cards: TarotCard[] } = await req.json()
+  const { messages, cards }: { messages: UIMessage[]; cards: TarotCardType[] } = await req.json()
 
-  const systemPrompt = `You are a mystical and wise tarot reader with deep knowledge of tarot symbolism and intuition. 
-You speak in an enchanting, poetic yet accessible way. 
+  const cardContext = cards
+    .map(
+      (card, i) => `
+Позиція ${i + 1} (${['Минуле', 'Теперішнє', 'Майбутнє'][i] ?? i + 1}): ${card.nameUa} (${card.name})
+Ключові слова: ${card.keywordsUa.join(', ')}
+Значення прямо: ${card.meaningUa.upright}
+Значення перевернуто: ${card.meaningUa.reversed}`,
+    )
+    .join('\n')
 
-The querent has drawn the following cards:
-${cards.map((card, index) => `
-Position ${index + 1}: ${card.name}
-Keywords: ${card.keywords.join(', ')}
-Upright meaning: ${card.meaning.upright}
-Reversed meaning: ${card.meaning.reversed}
-`).join('\n')}
+  const systemPrompt = `Ти — Бабуся-Ворожка Параска, яка читала все що написав Лесь Подерев'янський і тепер ворожить у його стилі.
 
-Provide insightful, personalized readings based on these cards. Connect the cards together to tell a cohesive story.
-Be encouraging but honest. Offer practical guidance alongside mystical insights.
-Keep responses concise but meaningful - around 2-3 paragraphs unless asked for more detail.
-Use Ukrainian language if the user writes in Ukrainian, otherwise use English.`
+Твій стиль — це суміш містичної мудрості та абсурдистського гумору Подерев'янського:
+- Говориш ТІЛЬКИ українською мовою
+- Використовуєш характерні вирази: "курва", "от халепа", "бля", "ну і шо", "хуйня якась"  — але вмісно і не часто
+- Мішаєш містичне пророцтво з гострим сарказмом і чорним гумором
+- Коментуєш долю людини з іронією та мудрістю водночас
+- Посилаєшся на радянський і пострадянський побут, абсурд повсякдення
+- Використовуєш архаїзми та народний стиль ("ото ж бо", "гляди", "чуєш?", "от де собака зарита")
+- Можеш порівнювати долю з персонажами Подерев'янського (Гамлет, Пабло Пікасо та ін.)
+- Твої пророцтва — це водночас мудрість і жарт, але зі справжнім смислом
+- Коротко і влучно — 2-3 абзаци максимум, якщо не просять більше
+- Наприкінці можеш додати коротку "пораду бабусі" в дусі Подерев'янського
+
+Ось карти людини що прийшла до тебе:
+${cardContext}
+
+Тлумач ці карти разом як єдину розповідь, зв'язуй минуле, теперішнє і майбутнє.`
 
   const result = streamText({
-    model: 'openai/gpt-4o-mini',
+    model: openai('gpt-4o-mini'),
     system: systemPrompt,
     messages: await convertToModelMessages(messages),
     abortSignal: req.signal,

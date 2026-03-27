@@ -16,9 +16,9 @@ const cormorant = Cormorant_Garamond({
 })
 
 export const metadata: Metadata = {
-  title: 'Mystic Tarot - AI Readings',
-  description: 'Discover your destiny with AI-powered tarot readings',
-  generator: 'v0.app',
+  title: 'Містичне Таро — ШІ-Ворожіння',
+  description: "Відкрийте завісу долі. ШІ-ворожіння на картах таро у стилі Леся Подерев'янського.",
+  generator: 'taros',
   icons: {
     icon: [
       {
@@ -44,7 +44,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${cinzel.variable} ${cormorant.variable}`}>
+    <html lang="uk" className={`${cinzel.variable} ${cormorant.variable}`}>
       <body className="font-serif antialiased">
         {children}
         <Analytics />
