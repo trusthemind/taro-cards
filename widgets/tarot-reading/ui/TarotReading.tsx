@@ -107,70 +107,103 @@ export function TarotReading() {
 
       {/* Content */}
       <div className="w-full max-w-5xl flex flex-col items-center relative z-10">
-        {/* Idle state - Start button */}
+        {/* Idle state - Show deck to shuffle */}
         {phase === 'idle' && (
-          <div className="flex flex-col items-center gap-10 animate-fade-in">
-            {/* Decorative cards preview */}
-            <div className="grid grid-cols-3 gap-3 sm:gap-5 opacity-60">
-              {[0, 1, 2].map(i => (
-                <div
-                  key={i}
-                  className="w-[90px] h-[150px] sm:w-[110px] sm:h-[185px] rounded-xl border border-primary/20 bg-secondary/50 flex items-center justify-center transition-transform duration-500 hover:scale-105"
-                  style={{
-                    transform: `rotate(${(i - 1) * 4}deg)`,
-                    animationDelay: `${i * 200}ms`,
-                  }}
-                >
-                  <span className="text-primary/30 text-3xl">✦</span>
-                </div>
-              ))}
+          <div className="flex flex-col items-center gap-8 animate-fade-in">
+            {/* Deck to shuffle */}
+            <div className="relative">
+              {/* Glow effect behind deck */}
+              <div className="absolute inset-0 bg-primary/10 blur-3xl rounded-full scale-150" />
+              
+              {/* Static deck preview */}
+              <div className="relative w-[140px] h-[220px] sm:w-[160px] sm:h-[250px]">
+                {Array.from({ length: 8 }).map((_, i) => {
+                  const offset = (7 - i) * 1
+                  const rotation = (7 - i) * 0.4 - 1.5
+                  return (
+                    <div
+                      key={i}
+                      className="absolute inset-0 rounded-xl border border-primary/30 bg-gradient-to-br from-secondary via-[oklch(0.18_0.04_290)] to-secondary shadow-lg"
+                      style={{
+                        transform: `translateY(${-offset}px) rotate(${rotation}deg)`,
+                        zIndex: i,
+                      }}
+                    >
+                      {i === 7 && (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <div className="w-[85%] h-[90%] rounded-lg border border-primary/40 flex items-center justify-center relative overflow-hidden">
+                            <div className="absolute inset-0 opacity-20">
+                              <div className="absolute inset-0 bg-[conic-gradient(from_0deg,transparent,oklch(0.78_0.14_85),transparent)] animate-spin-slow" />
+                            </div>
+                            <span className="text-5xl select-none z-10 animate-pulse-slow">✦</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
 
-            <button
-              onClick={handleShuffle}
-              className="group mt-4 bg-primary text-primary-foreground font-sans font-bold px-10 py-5 rounded-2xl text-base tracking-wider hover:opacity-90 active:scale-95 transition-all shadow-[0_0_30px_rgba(200,160,60,0.3)] hover:shadow-[0_0_50px_rgba(200,160,60,0.5)] relative overflow-hidden"
-            >
-              {/* Button shimmer effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-              <span className="relative flex items-center gap-2">
-                <span className="group-hover:animate-spin inline-block">✦</span>
-                Перемішати колоду
-              </span>
-            </button>
+            <div className="text-center">
+              <p className="text-sm text-muted-foreground font-serif mb-6">
+                78 карт готові розповісти вашу долю
+              </p>
+              
+              <button
+                onClick={handleShuffle}
+                className="group bg-primary text-primary-foreground font-sans font-bold px-10 py-5 rounded-2xl text-base tracking-wider hover:opacity-90 active:scale-95 transition-all shadow-[0_0_30px_rgba(200,160,60,0.3)] hover:shadow-[0_0_50px_rgba(200,160,60,0.5)] relative overflow-hidden"
+              >
+                {/* Button shimmer effect */}
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                <span className="relative flex items-center gap-2">
+                  <span className="group-hover:animate-spin inline-block">✦</span>
+                  Перемішати колоду
+                </span>
+              </button>
+            </div>
           </div>
         )}
 
         {/* Shuffling animation */}
         {phase === 'shuffling' && (
-          <div className="flex flex-col items-center gap-10">
-            <div className="relative w-[240px] h-[220px] flex items-center justify-center">
-              {/* Shuffling cards */}
-              {[0, 1, 2, 3, 4].map(i => (
+          <div className="flex flex-col items-center gap-8">
+            <div className="relative w-[280px] h-[280px] flex items-center justify-center">
+              {/* Magic circles */}
+              <div className="absolute w-[260px] h-[260px] rounded-full border border-primary/20 animate-spin-slow" />
+              <div className="absolute w-[220px] h-[220px] rounded-full border border-primary/15 animate-spin-slow-reverse" />
+              <div className="absolute w-[180px] h-[180px] rounded-full border border-primary/10 animate-spin-slow" />
+              
+              {/* Shuffling cards - more dramatic animation */}
+              {[0, 1, 2, 3, 4, 5].map(i => (
                 <div
                   key={i}
-                  className="absolute w-[100px] h-[160px] rounded-xl border border-primary/30 bg-gradient-to-br from-secondary to-[oklch(0.18_0.04_290)] shadow-lg"
+                  className="absolute w-[100px] h-[160px] rounded-xl border border-primary/40 bg-gradient-to-br from-secondary via-[oklch(0.18_0.04_290)] to-secondary shadow-[0_0_20px_rgba(200,160,60,0.3)]"
                   style={{
-                    animation: `shuffle-card-${(i % 3) + 1} 0.6s ease-in-out infinite`,
-                    animationDelay: `${i * 0.1}s`,
-                    zIndex: 5 - i,
+                    animation: `shuffle-card-${(i % 3) + 1} 0.5s ease-in-out infinite`,
+                    animationDelay: `${i * 0.08}s`,
+                    zIndex: 6 - i,
                   }}
-                />
+                >
+                  <div className="w-full h-full flex items-center justify-center">
+                    <span className="text-2xl text-primary/50">✦</span>
+                  </div>
+                </div>
               ))}
-
-              {/* Magic circle */}
-              <div className="absolute w-[200px] h-[200px] rounded-full border border-primary/20 animate-spin-slow" />
-              <div className="absolute w-[160px] h-[160px] rounded-full border border-primary/10 animate-spin-slow-reverse" />
+              
+              {/* Center glow */}
+              <div className="absolute w-32 h-32 bg-primary/20 rounded-full blur-2xl animate-pulse" />
             </div>
 
-            <div className="flex flex-col items-center gap-2">
-              <p className="text-muted-foreground font-serif text-sm animate-pulse">
+            <div className="flex flex-col items-center gap-3">
+              <p className="text-primary font-serif text-base animate-pulse-glow">
                 Перемішування колоди...
               </p>
-              <div className="flex gap-1">
+              <div className="flex gap-2">
                 {[0, 1, 2].map(i => (
                   <div
                     key={i}
-                    className="w-2 h-2 rounded-full bg-primary/60 animate-bounce"
+                    className="w-2.5 h-2.5 rounded-full bg-primary animate-bounce"
                     style={{ animationDelay: `${i * 150}ms` }}
                   />
                 ))}
@@ -181,33 +214,47 @@ export function TarotReading() {
 
         {/* Ready to draw state */}
         {(phase === 'ready' || phase === 'dealing') && (
-          <div className="flex flex-col items-center gap-12 animate-fade-in">
-            {/* Cards already drawn */}
-            {cards.length > 0 && (
-              <CardSpread
-                cards={cards}
-                revealedCount={0}
-                isDealing={phase === 'dealing'}
-                onRevealCard={() => {}}
-              />
-            )}
-
-            {/* Position indicator */}
-            {drawnCount < 3 && (
-              <div className="flex items-center gap-6">
-                {['Минуле', 'Теперішнє', 'Майбутнє'].map((label, i) => (
+          <div className="flex flex-col items-center gap-8 animate-fade-in">
+            {/* Position slots and drawn cards */}
+            <div className="flex items-end justify-center gap-4 sm:gap-8">
+              {['Минуле', 'Теперішнє', 'Майбутнє'].map((label, i) => (
+                <div key={label} className="flex flex-col items-center gap-3">
+                  {/* Card slot or drawn card */}
                   <div
-                    key={label}
-                    className={`flex flex-col items-center gap-1 transition-all duration-300 ${
-                      i < drawnCount
-                        ? 'opacity-40'
+                    className={`relative w-[100px] h-[160px] sm:w-[120px] sm:h-[190px] rounded-xl transition-all duration-500 ${
+                      i < cards.length
+                        ? ''
                         : i === drawnCount
-                        ? 'opacity-100 scale-110'
-                        : 'opacity-40'
+                        ? 'border-2 border-dashed border-primary/50 bg-primary/5 animate-pulse'
+                        : 'border border-dashed border-primary/20 bg-secondary/30'
                     }`}
                   >
+                    {i < cards.length ? (
+                      // Show drawn card back with landing animation for newest card
+                      <div className={`w-full h-full rounded-xl border border-primary/40 bg-gradient-to-br from-secondary via-[oklch(0.18_0.04_290)] to-secondary shadow-[0_0_30px_rgba(200,160,60,0.3)] overflow-hidden ${
+                        i === cards.length - 1 && phase === 'dealing' ? 'animate-card-land' : ''
+                      }`}>
+                        <div className="w-full h-full flex items-center justify-center">
+                          <div className="w-[85%] h-[90%] rounded-lg border border-primary/30 flex items-center justify-center relative overflow-hidden">
+                            <div className="absolute inset-0 opacity-20">
+                              <div className="absolute inset-0 bg-[conic-gradient(from_0deg,transparent,oklch(0.78_0.14_85),transparent)] animate-spin-slow" />
+                            </div>
+                            <span className="text-3xl z-10 text-primary/70">✦</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : i === drawnCount ? (
+                      // Empty slot waiting for card
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-2xl text-primary/40 animate-bounce-slow">?</span>
+                      </div>
+                    ) : null}
+                  </div>
+                  
+                  {/* Position label */}
+                  <div className="flex flex-col items-center gap-1">
                     <div
-                      className={`w-3 h-3 rounded-full transition-colors ${
+                      className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
                         i < drawnCount
                           ? 'bg-primary'
                           : i === drawnCount
@@ -215,28 +262,35 @@ export function TarotReading() {
                           : 'bg-primary/30'
                       }`}
                     />
-                    <span className="text-xs text-muted-foreground font-sans">
+                    <span className={`text-xs font-sans transition-colors ${
+                      i === drawnCount ? 'text-primary' : 'text-muted-foreground'
+                    }`}>
                       {label}
                     </span>
                   </div>
-                ))}
-              </div>
-            )}
+                </div>
+              ))}
+            </div>
 
-            {/* Deck */}
+            {/* Deck - below the spread */}
             {drawnCount < 3 && (
-              <CardDeck
-                deck={deck}
-                onDraw={handleDrawCard}
-                isDrawing={phase === 'dealing'}
-                drawnCount={drawnCount}
-              />
+              <div className="mt-4">
+                <CardDeck
+                  deck={deck}
+                  onDraw={handleDrawCard}
+                  isDrawing={phase === 'dealing'}
+                  drawnCount={drawnCount}
+                />
+              </div>
             )}
 
             {/* Instructions */}
             {drawnCount < 3 && phase !== 'dealing' && (
-              <p className="text-xs text-muted-foreground font-serif animate-fade-in">
-                Витягніть {3 - drawnCount} {drawnCount === 2 ? 'карту' : 'карти'} з колоди
+              <p className="text-sm text-muted-foreground font-serif animate-fade-in">
+                Натисніть на колоду, щоб витягнути карту для позиції{' '}
+                <span className="text-primary font-medium">
+                  {['Минуле', 'Теперішнє', 'Майбутнє'][drawnCount]}
+                </span>
               </p>
             )}
           </div>
@@ -252,9 +306,16 @@ export function TarotReading() {
               onRevealCard={handleRevealCard}
             />
 
+            {/* Hint to reveal cards */}
+            {revealedCount < 3 && (
+              <p className="mt-8 text-sm text-primary/80 font-serif animate-pulse">
+                Натисніть на карту, щоб відкрити її таємницю
+              </p>
+            )}
+
             <button
               onClick={handleReset}
-              className="mt-12 text-sm text-muted-foreground hover:text-primary font-sans border border-border/40 hover:border-primary/40 px-5 py-2 rounded-xl transition-all hover:shadow-[0_0_20px_rgba(200,160,60,0.2)]"
+              className="mt-8 text-sm text-muted-foreground hover:text-primary font-sans border border-border/40 hover:border-primary/40 px-5 py-2 rounded-xl transition-all hover:shadow-[0_0_20px_rgba(200,160,60,0.2)]"
             >
               ↺ Нове розкладання
             </button>

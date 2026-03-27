@@ -81,16 +81,20 @@ export function CardDeck({ deck, onDraw, isDrawing, drawnCount }: Props) {
           />
         ))}
 
-        {/* Flying card animation */}
+        {/* Flying card animation - flies up and to the left (towards spread positions) */}
         {isFlying && (
           <div
-            className="absolute w-[120px] h-[190px] sm:w-[140px] sm:h-[220px] rounded-xl border-2 border-primary/50 bg-gradient-to-br from-secondary to-[oklch(0.18_0.04_290)] shadow-[0_0_40px_rgba(200,160,60,0.4)] z-50 animate-card-fly-out"
+            className="absolute w-[100px] h-[160px] sm:w-[120px] sm:h-[190px] rounded-xl border-2 border-primary/60 bg-gradient-to-br from-secondary to-[oklch(0.18_0.04_290)] z-50"
+            style={{
+              animation: 'card-fly-to-spread 0.6s ease-out forwards',
+              boxShadow: '0 0 60px rgba(200, 160, 60, 0.6), 0 0 100px rgba(200, 160, 60, 0.3)',
+            }}
           >
             <div className="w-full h-full flex items-center justify-center relative overflow-hidden">
-              {/* Magical glow on flying card */}
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,oklch(0.78_0.14_85_/_0.3),transparent_70%)]" />
-              <div className="w-[85%] h-[90%] rounded-lg border border-primary/40 flex items-center justify-center z-10">
-                <span className="text-4xl select-none animate-pulse-glow">✦</span>
+              {/* Magical trail effect */}
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,oklch(0.78_0.14_85_/_0.4),transparent_60%)]" />
+              <div className="w-[85%] h-[90%] rounded-lg border border-primary/50 flex items-center justify-center z-10">
+                <span className="text-3xl select-none text-primary">✦</span>
               </div>
             </div>
           </div>

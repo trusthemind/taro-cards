@@ -11,7 +11,6 @@ interface Props {
   position: SpreadPosition
   isReversed: boolean
   isRevealed: boolean
-  isDealing?: boolean
   dealDelay?: number
   positionIndex: number
   onReveal?: () => void
