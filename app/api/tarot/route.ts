@@ -4,7 +4,7 @@ import {
   streamText,
   UIMessage,
 } from 'ai'
-import { openai } from '@ai-sdk/openai'
+import { gateway } from '@ai-sdk/gateway'
 import type { TarotCardType } from '@/entities/tarot-card'
 
 export const maxDuration = 30
@@ -42,7 +42,7 @@ ${cardContext}
 Тлумач ці карти разом як єдину розповідь, зв'язуй минуле, теперішнє і майбутнє.`
 
   const result = streamText({
-    model: openai('gpt-4o-mini'),
+    model: gateway('openai/gpt-4o-mini'),
     system: systemPrompt,
     messages: await convertToModelMessages(messages),
     abortSignal: req.signal,

@@ -689,7 +689,7 @@ export const ALL_CARDS: TarotCard[] = [
     id: 'pents-12', numericId: 76, arcana: 'minor', suit: 'pentacles', suitUa: 'Пентаклів',
     name: 'Knight of Pentacles', nameUa: 'Лицар Пентаклів',
     keywords: ['hard work', 'productivity', 'routine', 'conservatism'],
-    keywordsUa: ['наполеглива праця', 'продуктивність', 'рутина', 'консерватизм'],
+    keywordsUa: ['наполеглива праця', 'прод��ктивність', 'рутина', 'консерватизм'],
     image: '/cards/pents-12.jpg',
     meaning: { upright: 'Hard work, productivity, routine, conservatism', reversed: 'Self-discipline, boredom, feeling stuck, perfectionism' },
     meaningUa: { upright: 'Наполеглива праця, стабільність, відданість', reversed: 'Нудьга, застрягання, перфекціонізм' },
@@ -714,10 +714,28 @@ export const ALL_CARDS: TarotCard[] = [
   },
 ]
 
-export function getRandomCards(count = 3): TarotCard[] {
-  return [...ALL_CARDS].sort(() => Math.random() - 0.5).slice(0, count)
-}
-
 export function getCardById(id: string): TarotCard | undefined {
   return ALL_CARDS.find(c => c.id === id)
+}
+
+// Deck system - creates a shuffled deck that cards are drawn from
+export function createShuffledDeck(): TarotCard[] {
+  const deck = [...ALL_CARDS]
+  // Fisher-Yates shuffle for proper randomization
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[deck[i], deck[j]] = [deck[j], deck[i]]
+  }
+  return deck
+}
+
+export function drawCardsFromDeck(deck: TarotCard[], count: number): { drawnCards: TarotCard[]; remainingDeck: TarotCard[] } {
+  const drawnCards = deck.slice(0, count)
+  const remainingDeck = deck.slice(count)
+  return { drawnCards, remainingDeck }
+}
+
+// Legacy function for backwards compatibility
+export function getRandomCards(count = 3): TarotCard[] {
+  return createShuffledDeck().slice(0, count)
 }
