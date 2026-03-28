@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { motion } from 'framer-motion'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import type { TarotCard as TarotCardType, SpreadPosition } from '../model/types'
@@ -15,43 +16,64 @@ interface Props {
   onReveal?: () => void
 }
 
-export function TarotCard({ card, position, isReversed, isRevealed, animationDelay = 0, onReveal }: Props) {
+export function TarotCard({
+  card,
+  position,
+  isReversed,
+  isRevealed,
+  animationDelay = 0,
+  onReveal,
+}: Props) {
   const [imgError, setImgError] = useState(false)
 
   return (
-    <div className="flex flex-col items-center gap-3">
+    <motion.div
+      className="flex flex-col items-center gap-3"
+      initial={{ opacity: 0, y: 40 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: animationDelay / 1000 + 0.1, duration: 0.55, ease: 'easeOut' }}
+    >
       <span className="text-xs font-semibold tracking-widest uppercase text-primary/70 font-sans">
         {POSITION_LABELS_UA[position]}
       </span>
 
       <div
         className={cn(
-          'perspective-1000 w-[130px] h-[220px] sm:w-[150px] sm:h-[255px] cursor-pointer',
-          !isRevealed && 'hover:scale-105 transition-transform duration-200',
+          'w-[130px] h-[215px] sm:w-[150px] sm:h-[248px]',
+          'perspective-1000',
+          !isRevealed && 'cursor-pointer',
         )}
         onClick={() => !isRevealed && onReveal?.()}
-        style={{ animationDelay: `${animationDelay}ms` }}
       >
-        <div
-          className={cn(
-            'relative w-full h-full transform-style-preserve-3d transition-transform duration-700',
-            isRevealed && 'rotate-y-180',
-          )}
+        <motion.div
+          className="relative w-full h-full"
+          style={{ transformStyle: 'preserve-3d' }}
+          animate={{ rotateY: isRevealed ? 180 : 0 }}
+          transition={{ duration: 0.75, ease: [0.25, 0.46, 0.45, 0.94] }}
+          whileHover={!isRevealed ? { scale: 1.06, y: -4 } : {}}
         >
-          {/* Back face */}
-          <div className="absolute inset-0 backface-hidden rounded-xl overflow-hidden border border-primary/30 shadow-[0_0_20px_rgba(0,0,0,0.6)]">
-            <div className="w-full h-full bg-gradient-to-br from-secondary via-[oklch(0.18_0.04_290)] to-secondary flex items-center justify-center">
-              <div className="w-[85%] h-[90%] rounded-lg border border-primary/40 flex items-center justify-center">
-                <div className="text-4xl select-none">✦</div>
+          {/* Card back */}
+          <div
+            className="absolute inset-0 rounded-xl overflow-hidden border border-primary/30 shadow-[0_8px_30px_rgba(0,0,0,0.7)]"
+            style={{ backfaceVisibility: 'hidden' }}
+          >
+            <div className="w-full h-full bg-gradient-to-br from-[oklch(0.20_0.04_295)] via-[oklch(0.16_0.05_285)] to-[oklch(0.20_0.04_295)] flex items-center justify-center">
+              <div className="w-[84%] h-[89%] rounded-lg border border-primary/30 flex items-center justify-center">
+                <motion.div
+                  className="text-4xl text-primary/35 select-none"
+                  animate={{ opacity: [0.35, 0.6, 0.35] }}
+                  transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
+                >
+                  ✦
+                </motion.div>
               </div>
             </div>
           </div>
 
-          {/* Front face */}
+          {/* Card front */}
           <div
-            className={cn(
-              'absolute inset-0 backface-hidden rotate-y-180 rounded-xl overflow-hidden border border-primary/40 shadow-[0_0_30px_rgba(0,0,0,0.7)]',
-            )}
+            className="absolute inset-0 rounded-xl overflow-hidden border border-primary/50 shadow-[0_8px_40px_rgba(0,0,0,0.8),0_0_20px_rgba(200,160,60,0.15)]"
+            style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
           >
             {!imgError ? (
               <div className={cn('relative w-full h-full', isReversed && 'rotate-180')}>
@@ -68,28 +90,31 @@ export function TarotCard({ card, position, isReversed, isRevealed, animationDel
               <FallbackCardFace card={card} isReversed={isReversed} />
             )}
           </div>
-        </div>
+        </motion.div>
       </div>
 
-      {isRevealed && (
-        <div className="text-center animate-fade-in" style={{ animationDelay: `${animationDelay + 700}ms`, opacity: 0, animationFillMode: 'forwards' }}>
-          <p className="text-sm font-semibold text-primary font-sans">{card.nameUa}</p>
-          {card.suitUa && (
-            <p className="text-xs text-muted-foreground">{card.suitUa}</p>
-          )}
-          {isReversed && (
-            <p className="text-xs text-accent mt-0.5">↕ Перевернута</p>
-          )}
-        </div>
-      )}
-    </div>
+      <motion.div
+        className="text-center min-h-[40px]"
+        initial={false}
+        animate={{ opacity: isRevealed ? 1 : 0, y: isRevealed ? 0 : 6 }}
+        transition={{ delay: isRevealed ? 0.6 : 0, duration: 0.4 }}
+      >
+        <p className="text-sm font-semibold text-primary font-sans">{card.nameUa}</p>
+        {card.suitUa && (
+          <p className="text-xs text-muted-foreground">{card.suitUa}</p>
+        )}
+        {isReversed && (
+          <p className="text-xs text-accent mt-0.5">↕ Перевернута</p>
+        )}
+      </motion.div>
+    </motion.div>
   )
 }
 
 function FallbackCardFace({ card, isReversed }: { card: TarotCardType; isReversed: boolean }) {
   return (
     <div className={cn(
-      'w-full h-full bg-gradient-to-br from-secondary to-[oklch(0.20_0.06_295)] flex flex-col items-center justify-center gap-2 p-3',
+      'w-full h-full bg-gradient-to-br from-[oklch(0.20_0.06_295)] to-[oklch(0.16_0.05_285)] flex flex-col items-center justify-center gap-2 p-3',
       isReversed && 'rotate-180',
     )}>
       <div className="text-3xl">

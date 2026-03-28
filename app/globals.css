@@ -192,7 +192,7 @@
   animation: fade-in 0.6s ease-out forwards;
 }
 
-/* Stars background */
+/* Stars background — layer 1 (large sparse stars) */
 body::before {
   content: '';
   position: fixed;
@@ -200,18 +200,64 @@ body::before {
   left: 0;
   width: 100%;
   height: 100%;
-  background-image: 
-    radial-gradient(2px 2px at 20px 30px, oklch(0.78 0.14 85 / 0.3), transparent),
-    radial-gradient(2px 2px at 40px 70px, oklch(0.78 0.14 85 / 0.2), transparent),
-    radial-gradient(1px 1px at 90px 40px, oklch(0.78 0.14 85 / 0.3), transparent),
-    radial-gradient(2px 2px at 130px 80px, oklch(0.78 0.14 85 / 0.2), transparent),
-    radial-gradient(1px 1px at 160px 120px, oklch(0.78 0.14 85 / 0.4), transparent),
-    radial-gradient(2px 2px at 200px 50px, oklch(0.78 0.14 85 / 0.2), transparent),
-    radial-gradient(1px 1px at 250px 90px, oklch(0.78 0.14 85 / 0.3), transparent),
-    radial-gradient(2px 2px at 300px 150px, oklch(0.78 0.14 85 / 0.2), transparent),
-    radial-gradient(1px 1px at 350px 70px, oklch(0.78 0.14 85 / 0.3), transparent),
-    radial-gradient(2px 2px at 400px 130px, oklch(0.78 0.14 85 / 0.2), transparent);
-  background-size: 420px 180px;
+  background-image:
+    radial-gradient(2px 2px at 12px 18px,  oklch(0.78 0.14 85 / 0.45), transparent),
+    radial-gradient(1px 1px at 55px 80px,  oklch(0.78 0.14 85 / 0.25), transparent),
+    radial-gradient(2px 2px at 110px 35px, oklch(0.78 0.14 85 / 0.35), transparent),
+    radial-gradient(1px 1px at 160px 95px, oklch(0.78 0.14 85 / 0.20), transparent),
+    radial-gradient(3px 3px at 210px 55px, oklch(0.78 0.14 85 / 0.30), transparent),
+    radial-gradient(1px 1px at 270px 130px,oklch(0.78 0.14 85 / 0.22), transparent),
+    radial-gradient(2px 2px at 320px 20px, oklch(0.78 0.14 85 / 0.38), transparent),
+    radial-gradient(1px 1px at 380px 100px,oklch(0.78 0.14 85 / 0.20), transparent),
+    radial-gradient(2px 2px at 430px 145px,oklch(0.78 0.14 85 / 0.28), transparent),
+    radial-gradient(1px 1px at 490px 65px, oklch(0.78 0.14 85 / 0.35), transparent),
+    radial-gradient(3px 3px at 540px 110px,oklch(0.78 0.14 85 / 0.25), transparent),
+    radial-gradient(1px 1px at 600px 30px, oklch(0.78 0.14 85 / 0.30), transparent),
+    radial-gradient(2px 2px at 650px 155px,oklch(0.78 0.14 85 / 0.20), transparent),
+    radial-gradient(1px 1px at 710px 75px, oklch(0.78 0.14 85 / 0.40), transparent),
+    radial-gradient(2px 2px at 760px 40px, oklch(0.78 0.14 85 / 0.22), transparent);
+  background-size: 800px 200px;
   pointer-events: none;
   z-index: -1;
+}
+
+/* Stars background — layer 2 (dense micro-stars, offset) */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image:
+    radial-gradient(1px 1px at 30px 50px,  oklch(0.78 0.14 85 / 0.18), transparent),
+    radial-gradient(1px 1px at 75px 10px,  oklch(0.78 0.14 85 / 0.22), transparent),
+    radial-gradient(1px 1px at 140px 170px,oklch(0.78 0.14 85 / 0.15), transparent),
+    radial-gradient(1px 1px at 200px 75px, oklch(0.78 0.14 85 / 0.20), transparent),
+    radial-gradient(1px 1px at 240px 140px,oklch(0.78 0.14 85 / 0.18), transparent),
+    radial-gradient(1px 1px at 300px 45px, oklch(0.78 0.14 85 / 0.22), transparent),
+    radial-gradient(1px 1px at 350px 115px,oklch(0.78 0.14 85 / 0.15), transparent),
+    radial-gradient(1px 1px at 410px 30px, oklch(0.78 0.14 85 / 0.20), transparent),
+    radial-gradient(1px 1px at 460px 170px,oklch(0.78 0.14 85 / 0.18), transparent),
+    radial-gradient(1px 1px at 510px 90px, oklch(0.78 0.14 85 / 0.22), transparent),
+    radial-gradient(1px 1px at 570px 55px, oklch(0.78 0.14 85 / 0.15), transparent),
+    radial-gradient(1px 1px at 620px 140px,oklch(0.78 0.14 85 / 0.20), transparent);
+  background-size: 700px 220px;
+  pointer-events: none;
+  z-index: -1;
+  animation: stars-twinkle 6s ease-in-out infinite alternate;
+}
+
+@keyframes stars-twinkle {
+  from { opacity: 0.6; }
+  to   { opacity: 1; }
+}
+
+/* Radial vignette overlay */
+body {
+  background-image: radial-gradient(
+    ellipse 120% 80% at 50% 0%,
+    oklch(0.18 0.04 295 / 0.4) 0%,
+    transparent 70%
+  );
 }
