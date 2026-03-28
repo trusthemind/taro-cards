@@ -81,10 +81,10 @@ export function TarotReading() {
         >
           ✦ · ✦ · ✦
         </motion.div>
-        <h1 className="text-4xl sm:text-5xl font-bold font-sans text-primary mb-3 tracking-wide">
+        <h1 className="text-5xl sm:text-6xl font-bold font-sans text-primary mb-3 tracking-wide">
           Містичне Таро
         </h1>
-        <p className="text-muted-foreground font-serif text-base sm:text-lg leading-relaxed">
+        <p className="text-muted-foreground font-serif text-lg sm:text-xl leading-relaxed">
           Три карти розкажуть про ваше минуле, теперішнє і майбутнє.
           <br />
           <span className="text-primary/50 text-sm">Бабця Параска не бреше.</span>

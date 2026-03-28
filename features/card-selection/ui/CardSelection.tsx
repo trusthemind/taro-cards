@@ -49,10 +49,10 @@ export function CardSelection({ deck, onConfirm }: Props) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
       >
-        <p className="text-primary font-sans font-semibold text-base tracking-wide">
+        <p className="text-primary font-sans font-semibold text-lg tracking-wide">
           Оберіть {PICK_COUNT} карти з {deck.length}
         </p>
-        <p className="text-muted-foreground font-serif text-sm mt-1">
+        <p className="text-muted-foreground font-serif text-base mt-1">
           {selected.size === 0 && 'Торкніться карти — відчуєте яка ваша'}
           {selected.size > 0 && selected.size < PICK_COUNT && `Ще ${PICK_COUNT - selected.size} ${selected.size === PICK_COUNT - 1 ? 'карта' : 'карти'}...`}
           {selected.size === PICK_COUNT && 'Добре. Доля обрана.'}
