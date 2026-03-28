@@ -60,10 +60,10 @@ export function TarotChat({ cards, isActive }: Props) {
             🔮
           </div>
           <div>
-            <p className="text-sm font-semibold text-primary font-sans tracking-wide leading-none">
+            <p className="text-base font-semibold text-primary font-sans tracking-wide leading-none">
               Бабця Параска
             </p>
-            <p className="text-[11px] text-muted-foreground mt-0.5 italic">
+            <p className="text-xs text-muted-foreground mt-0.5 italic">
               у стилі Леся Подерев&apos;янського
             </p>
           </div>
@@ -100,7 +100,7 @@ export function TarotChat({ cards, isActive }: Props) {
                   )}
                   <div
                     className={cn(
-                      'max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-relaxed font-serif',
+                      'max-w-[88%] rounded-2xl px-4 py-3 text-base leading-relaxed font-serif',
                       msg.role === 'user'
                         ? 'bg-primary/20 border border-primary/30 text-foreground rounded-tr-sm'
                         : 'bg-secondary/80 border border-border/30 text-foreground rounded-tl-sm',
@@ -156,7 +156,7 @@ export function TarotChat({ cards, isActive }: Props) {
             onChange={e => setInput(e.target.value)}
             placeholder="Запитайте про ваш розклад..."
             disabled={isLoading}
-            className="flex-1 bg-input/50 border border-border/40 rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/50 disabled:opacity-50 font-serif"
+            className="flex-1 bg-input/50 border border-border/40 rounded-xl px-4 py-2.5 text-base text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/50 disabled:opacity-50 font-serif"
           />
           <button
             type="submit"

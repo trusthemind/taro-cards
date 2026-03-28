@@ -33,7 +33,7 @@ export function TarotCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: animationDelay / 1000 + 0.1, duration: 0.55, ease: 'easeOut' }}
     >
-      <span className="text-xs font-semibold tracking-widest uppercase text-primary/70 font-sans">
+      <span className="text-sm font-semibold tracking-widest uppercase text-primary/70 font-sans">
         {POSITION_LABELS_UA[position]}
       </span>
 
@@ -99,12 +99,12 @@ export function TarotCard({
         animate={{ opacity: isRevealed ? 1 : 0, y: isRevealed ? 0 : 6 }}
         transition={{ delay: isRevealed ? 0.6 : 0, duration: 0.4 }}
       >
-        <p className="text-sm font-semibold text-primary font-sans">{card.nameUa}</p>
+        <p className="text-base font-semibold text-primary font-sans">{card.nameUa}</p>
         {card.suitUa && (
-          <p className="text-xs text-muted-foreground">{card.suitUa}</p>
+          <p className="text-sm text-muted-foreground">{card.suitUa}</p>
         )}
         {isReversed && (
-          <p className="text-xs text-accent mt-0.5">↕ Перевернута</p>
+          <p className="text-sm text-accent mt-0.5">↕ Перевернута</p>
         )}
       </motion.div>
     </motion.div>
