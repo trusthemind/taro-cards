@@ -1,5 +1,6 @@
 'use client'
 
+import { motion } from 'framer-motion'
 import { TarotCard } from '@/entities/tarot-card'
 import type { CardInSpread } from '@/entities/tarot-card'
 
@@ -10,8 +11,15 @@ interface Props {
 }
 
 export function CardSpread({ cards, revealedCount, onRevealCard }: Props) {
+  const allRevealed = revealedCount >= cards.length
+
   return (
-    <div className="flex flex-col items-center gap-6">
+    <motion.div
+      className="flex flex-col items-center gap-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.4 }}
+    >
       <div className="flex flex-wrap justify-center gap-6 sm:gap-10">
         {cards.map((item, i) => (
           <TarotCard
@@ -20,17 +28,22 @@ export function CardSpread({ cards, revealedCount, onRevealCard }: Props) {
             position={item.position}
             isReversed={item.isReversed}
             isRevealed={i < revealedCount}
-            animationDelay={i * 150}
+            animationDelay={i * 180}
             onReveal={() => onRevealCard(i)}
           />
         ))}
       </div>
 
-      {revealedCount < cards.length && (
-        <p className="text-xs text-muted-foreground animate-pulse">
-          Натисніть на карту, щоб відкрити
-        </p>
+      {!allRevealed && (
+        <motion.p
+          className="text-xs text-muted-foreground font-serif"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0, 1, 0.5, 1] }}
+          transition={{ duration: 2, repeat: Infinity }}
+        >
+          Торкніться карти, щоб відкрити
+        </motion.p>
       )}
-    </div>
+    </motion.div>
   )
 }
