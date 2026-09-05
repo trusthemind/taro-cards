@@ -1,6 +1,6 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { motion } from 'motion/react'
 import { TarotCard } from '@/entities/tarot-card'
 import type { CardInSpread } from '@/entities/tarot-card'
 

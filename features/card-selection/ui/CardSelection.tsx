@@ -1,82 +1,107 @@
 'use client'
 
 import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { cn } from '@/lib/utils'
-import type { TarotCard } from '@/entities/tarot-card/model/types'
+import { motion, AnimatePresence, useReducedMotion } from 'motion/react'
+import { cn } from '@/shared/lib/utils'
+import { CardBack } from '@/entities/tarot-card'
+import type { TarotCardType } from '@/entities/tarot-card'
 
 const PICK_COUNT = 3
-const DECK_SIZE = 10
 const CARD_W = 76
 const CARD_H = 124
+const FAN_WIDTH = 370
+const FAN_ARC = 50
+const FAN_ROTATION = 52
 
-function getCardLayout(i: number, total: number) {
-  const t = i / (total - 1) // 0 → 1
-  const centered = t - 0.5 // -0.5 → 0.5
+/** Positions card `i` of `total` along a shallow upward arc. */
+function getCardLayout(index: number, total: number) {
+  const t = total > 1 ? index / (total - 1) : 0.5
+  const centered = t - 0.5
   return {
-    x: centered * 370,
-    baseY: Math.abs(centered) * 2 * 50, // 0 at center, 50 at edges (arc)
-    rotate: centered * 52,
+    x: centered * FAN_WIDTH,
+    baseY: Math.abs(centered) * 2 * FAN_ARC,
+    rotate: centered * FAN_ROTATION,
   }
 }
 
+function hintFor(count: number): string {
+  if (count === 0) return 'Торкніться карти — відчуєте яка ваша'
+  if (count === PICK_COUNT) return 'Добре. Доля обрана.'
+  const left = PICK_COUNT - count
+  return `Ще ${left} ${left === 1 ? 'карта' : 'карти'}...`
+}
+
 interface Props {
-  deck: TarotCard[]
-  onConfirm: (selected: TarotCard[]) => void
+  deck: TarotCardType[]
+  onConfirm: (selected: TarotCardType[]) => void
 }
 
 export function CardSelection({ deck, onConfirm }: Props) {
-  const [selected, setSelected] = useState<Set<number>>(new Set())
-  const canConfirm = selected.size === PICK_COUNT
+  const [selected, setSelected] = useState<number[]>([])
+  const reduceMotion = useReducedMotion()
+  const canConfirm = selected.length === PICK_COUNT
 
-  const toggle = (i: number) => {
+  // An ordered list, not a Set: the badge shows pick order, and Set iteration
+  // order only happened to match because entries were never removed and re-added.
+  const toggle = (index: number) => {
     setSelected(prev => {
-      const next = new Set(prev)
-      if (next.has(i)) {
-        next.delete(i)
-      } else if (next.size < PICK_COUNT) {
-        next.add(i)
-      }
-      return next
+      if (prev.includes(index)) return prev.filter(i => i !== index)
+      if (prev.length >= PICK_COUNT) return prev
+      return [...prev, index]
     })
   }
 
   return (
-    <div className="flex flex-col items-center gap-6 w-full">
+    <div className="flex w-full flex-col items-center gap-6">
       <motion.div
         className="text-center"
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
+        transition={{ delay: reduceMotion ? 0 : 0.3 }}
       >
-        <p className="text-primary font-sans font-semibold text-lg tracking-wide">
+        <p className="font-sans text-lg font-semibold tracking-wide text-gold">
           Оберіть {PICK_COUNT} карти з {deck.length}
         </p>
-        <p className="text-muted-foreground font-serif text-base mt-1">
-          {selected.size === 0 && 'Торкніться карти — відчуєте яка ваша'}
-          {selected.size > 0 && selected.size < PICK_COUNT && `Ще ${PICK_COUNT - selected.size} ${selected.size === PICK_COUNT - 1 ? 'карта' : 'карти'}...`}
-          {selected.size === PICK_COUNT && 'Добре. Доля обрана.'}
+        <p
+          className="mt-1 font-serif text-base text-muted-foreground"
+          aria-live="polite"
+        >
+          {hintFor(selected.length)}
         </p>
       </motion.div>
 
-      {/* Fan container */}
-      <div className="relative w-full h-[290px] overflow-visible">
-        <div className="scale-[0.72] sm:scale-100 origin-top w-full h-full">
+      <div
+        className="relative h-[300px] w-full overflow-visible"
+        role="group"
+        aria-label={`Колода з ${deck.length} карт. Оберіть ${PICK_COUNT}.`}
+      >
+        <div className="h-full w-full origin-top scale-[0.72] sm:scale-100">
           {deck.map((card, i) => {
-            const { x, baseY, rotate } = getCardLayout(i, DECK_SIZE)
-            const isSelected = selected.has(i)
-            const isDisabled = !isSelected && selected.size >= PICK_COUNT
+            const { x, baseY, rotate } = getCardLayout(i, deck.length)
+            const pickIndex = selected.indexOf(i)
+            const isSelected = pickIndex !== -1
+            const isDisabled = !isSelected && selected.length >= PICK_COUNT
             const animY = isSelected ? baseY - 42 : baseY
-            const hoverY = isDisabled ? undefined : animY - 24
 
             return (
-              <motion.div
+              <motion.button
                 key={card.id}
-                className={cn('absolute cursor-pointer', isDisabled && 'cursor-not-allowed')}
+                type="button"
+                disabled={isDisabled}
+                aria-pressed={isSelected}
+                aria-label={
+                  isSelected
+                    ? `Карта ${i + 1}, обрана ${pickIndex + 1}-ю. Натисніть, щоб скасувати.`
+                    : `Карта ${i + 1}. Натисніть, щоб обрати.`
+                }
+                className={cn(
+                  'absolute rounded-xl',
+                  isDisabled ? 'cursor-not-allowed' : 'cursor-pointer',
+                )}
                 style={{
                   left: '50%',
                   top: '70px',
-                  marginLeft: `-${CARD_W / 2}px`,
+                  marginLeft: -CARD_W / 2,
                   width: CARD_W,
                   height: CARD_H,
                   transformOrigin: 'center bottom',
@@ -91,75 +116,52 @@ export function CardSelection({ deck, onConfirm }: Props) {
                   opacity: isDisabled ? 0.4 : 1,
                 }}
                 transition={{
-                  delay: i * 0.045,
-                  duration: 0.55,
+                  delay: reduceMotion ? 0 : i * 0.045,
+                  duration: reduceMotion ? 0 : 0.55,
                   ease: [0.25, 0.46, 0.45, 0.94],
-                  opacity: { delay: i * 0.045, duration: 0.3 },
                 }}
-                whileHover={hoverY !== undefined ? {
-                  y: hoverY,
-                  scale: isSelected ? 1.16 : 1.1,
-                  zIndex: 30,
-                } : {}}
+                whileHover={
+                  isDisabled || reduceMotion
+                    ? undefined
+                    : { y: animY - 24, scale: isSelected ? 1.16 : 1.1, zIndex: 30 }
+                }
                 onClick={() => !isDisabled && toggle(i)}
               >
-                {/* Card back */}
-                <div className={cn(
-                  'w-full h-full rounded-xl overflow-hidden border transition-all duration-300',
-                  isSelected
-                    ? 'border-primary shadow-[0_0_24px_rgba(200,160,60,0.7),0_0_50px_rgba(200,160,60,0.3)]'
-                    : 'border-primary/25 shadow-[0_4px_20px_rgba(0,0,0,0.5)]',
-                )}>
-                  <div className="w-full h-full bg-gradient-to-br from-[oklch(0.20_0.04_295)] via-[oklch(0.16_0.05_285)] to-[oklch(0.20_0.04_295)] flex items-center justify-center">
-                    <div className={cn(
-                      'w-[78%] h-[85%] rounded-lg border flex items-center justify-center transition-colors duration-300',
-                      isSelected ? 'border-primary/70' : 'border-primary/20',
-                    )}>
-                      <motion.span
-                        className={cn(
-                          'text-xl select-none',
-                          isSelected ? 'text-primary' : 'text-primary/25',
-                        )}
-                        animate={isSelected ? { scale: [1, 1.2, 1], opacity: [1, 0.7, 1] } : {}}
-                        transition={isSelected ? { repeat: Infinity, duration: 2 } : {}}
-                      >
-                        ✦
-                      </motion.span>
-                    </div>
-                  </div>
-                </div>
+                <CardBack isHighlighted={isSelected} />
 
-                {/* Selected indicator badge */}
                 <AnimatePresence>
                   {isSelected && (
-                    <motion.div
-                      className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center text-[10px] font-bold text-primary-foreground shadow-lg"
+                    <motion.span
+                      className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-gold text-[10px] font-bold text-primary-foreground shadow-lg"
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                       exit={{ scale: 0 }}
+                      aria-hidden="true"
                     >
-                      {Array.from(selected).indexOf(i) + 1}
-                    </motion.div>
+                      {pickIndex + 1}
+                    </motion.span>
                   )}
                 </AnimatePresence>
-              </motion.div>
+              </motion.button>
             )
           })}
         </div>
       </div>
 
-      {/* Confirm button */}
       <AnimatePresence>
         {canConfirm && (
           <motion.button
+            type="button"
             initial={{ opacity: 0, y: 20, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
-            transition={{ duration: 0.4, ease: 'easeOut' }}
-            onClick={() => onConfirm(deck.filter((_, i) => selected.has(i)))}
-            className="group bg-primary text-primary-foreground font-sans font-bold px-10 py-4 rounded-2xl text-base tracking-wider shadow-[0_0_35px_rgba(200,160,60,0.4)] hover:shadow-[0_0_55px_rgba(200,160,60,0.65)] hover:opacity-90 active:scale-95 transition-all"
+            transition={{ duration: reduceMotion ? 0 : 0.4, ease: 'easeOut' }}
+            onClick={() => onConfirm(selected.map(i => deck[i]))}
+            className="group rounded-2xl bg-gold px-10 py-4 font-sans text-base font-bold tracking-wider text-primary-foreground shadow-[var(--glow-md)] transition-all hover:shadow-[var(--glow-lg)] active:scale-95"
           >
-            <span className="mr-2 group-hover:animate-spin inline-block">✦</span>
+            <span className="mr-2 inline-block transition-transform group-hover:rotate-180">
+              ✦
+            </span>
             Відкрити долю
           </motion.button>
         )}

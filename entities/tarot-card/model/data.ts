@@ -714,10 +714,27 @@ export const ALL_CARDS: TarotCard[] = [
   },
 ]
 
+/** O(1) lookup, used by the reading API to resolve ids the client sends. */
+const CARDS_BY_ID = new Map(ALL_CARDS.map(card => [card.id, card]))
+
+/**
+ * Draws `count` distinct cards using a Fisher-Yates shuffle.
+ *
+ * The previous `sort(() => Math.random() - 0.5)` is not a uniform shuffle —
+ * comparison sorts assume a consistent comparator, so cards near their starting
+ * index stayed there far more often than chance. For a divination app the
+ * fairness of the draw is the whole product.
+ */
 export function getRandomCards(count = 3): TarotCard[] {
-  return [...ALL_CARDS].sort(() => Math.random() - 0.5).slice(0, count)
+  const n = Math.max(0, Math.min(count, ALL_CARDS.length))
+  const pool = [...ALL_CARDS]
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[pool[i], pool[j]] = [pool[j], pool[i]]
+  }
+  return pool.slice(0, n)
 }
 
 export function getCardById(id: string): TarotCard | undefined {
-  return ALL_CARDS.find(c => c.id === id)
+  return CARDS_BY_ID.get(id)
 }
