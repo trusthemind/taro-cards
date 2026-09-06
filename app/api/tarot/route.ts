@@ -1,11 +1,11 @@
 import { convertToModelMessages, streamText, type UIMessage } from 'ai'
 import { openai } from '@ai-sdk/openai'
 import { z } from 'zod'
-import { getCardById } from '@/entities/tarot-card'
-import { buildSystemPrompt, type ReadingCard } from '@/features/tarot-chat/model/prompt'
-import { requireVisitorId } from '@/shared/lib/visitor'
-import { getEntitlement, consumeReading, refundReading } from '@/entities/subscription/server'
-import { FREE_FOLLOWUPS_PER_READING } from '@/shared/config/plans'
+import { getCardById } from '@/lib/tarot'
+import { buildSystemPrompt, type ReadingCard } from '@/lib/tarot/prompt'
+import { requireVisitorId } from '@/lib/visitor'
+import { getEntitlement, consumeReading, refundReading } from '@/lib/subscription/server'
+import { FREE_FOLLOWUPS_PER_READING } from '@/lib/config/plans'
 
 export const maxDuration = 30
 export const runtime = 'nodejs'

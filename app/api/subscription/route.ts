@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { requireVisitorId } from '@/shared/lib/visitor'
-import { getEntitlement } from '@/entities/subscription/server'
-import { isStripeConfigured } from '@/shared/config/env'
+import { requireVisitorId } from '@/lib/visitor'
+import { getEntitlement } from '@/lib/subscription/server'
+import { isStripeConfigured } from '@/lib/config/env'
 
 export const dynamic = 'force-dynamic'
 

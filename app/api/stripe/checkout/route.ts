@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
-import { env, isStripeConfigured } from '@/shared/config/env'
-import { isPaidPlanId } from '@/shared/config/plans'
-import { requireVisitorId } from '@/shared/lib/visitor'
-import { getStripe, priceIdForPlan, getSubscription } from '@/entities/subscription/server'
+import { env, isStripeConfigured } from '@/lib/config/env'
+import { isPaidPlanId } from '@/lib/config/plans'
+import { requireVisitorId } from '@/lib/visitor'
+import { getStripe, priceIdForPlan, getSubscription } from '@/lib/subscription/server'
 
 export const dynamic = 'force-dynamic'
 

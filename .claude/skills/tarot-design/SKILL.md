@@ -90,12 +90,37 @@ and the reveal flip both depend on this for keyboard access. Give decorative
 glyphs (`✦`, emoji) `aria-hidden`, name controls with `aria-label`, and mark
 live regions (`aria-live="polite"`) for the selection hint and chat log.
 
+## Where a component goes
+
+The UI is organised by **Atomic Design**. Pick the layer by what a thing *is*,
+not by which screen uses it:
+
+| Layer | Contains | Examples |
+|---|---|---|
+| `components/atoms/` | indivisible UI; no domain knowledge | `CardBack`, `Starfield`, `Ornament`, `ParascaAvatar`, `TypingIndicator`, `ui/*` (shadcn) |
+| `components/molecules/` | a few atoms bound into one unit | `TarotCard`, `ChatMessage`, `PlanCard`, `SubscriptionStatus` |
+| `components/organisms/` | a self-contained section with its own state | `CardSpread`, `CardSelection`, `TarotChat`, `PricingPlans`, `Paywall` |
+| `components/templates/` | whole-page composition and flow state | `ReadingTemplate`, `PricingTemplate` |
+| `app/**/page.tsx` | the "pages" layer — routing and metadata only | |
+
+Rules:
+
+- Imports only ever point **downwards** (a molecule may use atoms, never an
+  organism). If an atom needs to know about a subscription plan, it isn't an atom.
+- Atomic Design is a taxonomy for **UI only**. Domain models, config, hooks,
+  Stripe and storage live in `lib/` and are outside it. Never create
+  `entities/`, `features/`, `widgets/` or a `shared/` layer here.
+- Before inlining markup a second time, extract it. `CardBack` exists because
+  the same card reverse had been pasted into four places and had drifted apart.
+
 ## Pulling components from a registry
 
 `.mcp.json` wires up the shadcn MCP with `@shadcn`, `@magicui`, `@aceternity`
-and `@tweakcn`. Add with `pnpm dlx shadcn@latest add @magicui/<item>`. Afterwards:
+and `@tweakcn`. Add with `pnpm dlx shadcn@latest add @magicui/<item>` — it lands
+in `components/atoms/ui/`. Afterwards:
 
 - Rewrite hard-coded hex colours to the tokens above (`BorderBeam` shipped with
   `#ffaa40` / `#9c40ff`).
 - Confirm it imports `motion/react` — this repo does **not** use `framer-motion`.
-- Confirm it imports `@/shared/lib/utils`, not `@/lib/utils`.
+- Confirm it imports `@/lib/utils`, and that anything re-exporting it points at
+  `@/components/atoms/ui/<name>`.

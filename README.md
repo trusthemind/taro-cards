@@ -15,21 +15,33 @@ pnpm dev
 
 ## Архітектура
 
-Feature-Sliced Design. Залежності йдуть тільки вниз:
-`app → widgets → features → entities → shared`.
+UI — **Atomic Design**. Імпорти йдуть тільки вниз:
+`pages → templates → organisms → molecules → atoms`.
 
 ```
-app/          маршрути та API-хендлери
-  api/tarot           стрім тлумачення + перевірка ліміту
-  api/subscription    поточні права доступу відвідувача
-  api/stripe/*        checkout, billing portal, webhook
-widgets/      цілі екрани (tarot-reading, pricing)
-features/     сценарії користувача (card-selection, card-spread,
-              tarot-chat, subscription)
-entities/     предметні моделі (tarot-card, subscription)
-shared/       config (env, plans), lib (kv, utils, visitor), hooks
-components/ui shadcn-примітиви
+app/                    маршрути Next.js — це шар "pages"
+  api/tarot                  стрім тлумачення + перевірка ліміту
+  api/subscription           поточні права доступу відвідувача
+  api/stripe/*               checkout, billing portal, webhook
+components/
+  atoms/                неподільні елементи без знання домену
+    CardBack, Starfield, Ornament, Avatar, TypingIndicator
+    ui/                      примітиви shadcn
+  molecules/            кілька атомів як одне ціле
+    TarotCard, ChatMessage, PlanCard, SubscriptionStatus
+  organisms/            самостійні секції зі своїм станом
+    CardSpread, CardSelection, TarotChat, PricingPlans, Paywall
+  templates/            композиція сторінки і стан флоу
+    ReadingTemplate, PricingTemplate
+lib/                    не-UI: домен, конфіг, хуки, сервер
+  tarot/                     колода, типи, системний промпт
+  subscription/              типи, репозиторій, Stripe, хук
+  config/                    env, тарифи
+  kv.ts, visitor.ts, utils.ts, hooks/
 ```
+
+Atomic Design — таксономія **тільки для UI**. Доменні моделі, Stripe і
+сховище живуть у `lib/` і в неї не входять.
 
 ## Підписки
 
@@ -99,4 +111,4 @@ guard-и checkout і portal, перевірку підпису вебхука (�
 pnpm dlx shadcn@latest add @magicui/border-beam
 ```
 
-Анімації — `motion` (не `framer-motion`), утиліти — `@/shared/lib/utils`.
+Анімації — `motion` (не `framer-motion`), утиліти — `@/lib/utils`, примітиви shadcn — `@/components/atoms/ui`.

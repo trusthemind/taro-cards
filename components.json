@@ -12,10 +12,10 @@
   },
   "aliases": {
     "components": "@/components",
-    "utils": "@/shared/lib/utils",
-    "ui": "@/components/ui",
-    "lib": "@/shared/lib",
-    "hooks": "@/shared/hooks"
+    "utils": "@/lib/utils",
+    "ui": "@/components/atoms/ui",
+    "lib": "@/lib",
+    "hooks": "@/lib/hooks"
   },
   "iconLibrary": "lucide",
   "registries": {

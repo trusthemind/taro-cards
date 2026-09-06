@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import type Stripe from 'stripe'
-import { env } from '@/shared/config/env'
+import { env } from '@/lib/config/env'
 import {
   getStripe,
   saveSubscription,
@@ -8,7 +8,7 @@ import {
   linkCustomer,
   toSubscriptionRecord,
   visitorIdFromMetadata,
-} from '@/entities/subscription/server'
+} from '@/lib/subscription/server'
 
 // Signature verification needs the raw, unparsed body.
 export const dynamic = 'force-dynamic'

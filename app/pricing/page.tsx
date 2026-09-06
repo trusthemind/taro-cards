@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
-import { PricingView } from '@/widgets/pricing'
+import { PricingTemplate } from '@/components/templates/PricingTemplate'
 
 export const metadata: Metadata = {
   title: 'Підписка — Містичне Таро',
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function PricingPage() {
   return (
     <Suspense fallback={null}>
-      <PricingView />
+      <PricingTemplate />
     </Suspense>
   )
 }
