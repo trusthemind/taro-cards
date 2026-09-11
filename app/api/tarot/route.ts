@@ -1,80 +1,99 @@
-import {
-  consumeStream,
-  convertToModelMessages,
-  streamText,
-  UIMessage,
-} from 'ai'
+import { convertToModelMessages, streamText, type UIMessage } from 'ai'
 import { openai } from '@ai-sdk/openai'
-import type { TarotCardType } from '@/entities/tarot-card'
+import { z } from 'zod'
+import { getCardById } from '@/lib/tarot'
+import { buildSystemPrompt, type ReadingCard } from '@/lib/tarot/prompt'
+import { requireVisitorId } from '@/lib/visitor'
+import { getEntitlement, consumeReading, refundReading } from '@/lib/subscription/server'
+import { FREE_FOLLOWUPS_PER_READING } from '@/lib/config/plans'
 
 export const maxDuration = 30
+export const runtime = 'nodejs'
+
+const spreadSchema = z
+  .array(
+    z.object({
+      id: z.string(),
+      position: z.enum(['past', 'present', 'future']),
+      isReversed: z.boolean(),
+    }),
+  )
+  .length(3)
+
+const requestSchema = z.object({
+  messages: z.array(z.any()),
+  spread: spreadSchema,
+})
+
+/** 402 tells the client to open the paywall rather than show a generic error. */
+function paywall(message: string) {
+  return Response.json({ error: message, code: 'subscription_required' }, { status: 402 })
+}
 
 export async function POST(req: Request) {
-  const { messages, cards }: { messages: UIMessage[]; cards: TarotCardType[] } = await req.json()
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return Response.json({ error: 'Некоректний запит.' }, { status: 400 })
+  }
 
-  const cardContext = cards
-    .map(
-      (card, i) => `
-Позиція ${i + 1} (${['Минуле', 'Теперішнє', 'Майбутнє'][i] ?? i + 1}): ${card.nameUa} (${card.name})
-Ключові слова: ${card.keywordsUa.join(', ')}
-Значення прямо: ${card.meaningUa.upright}
-Значення перевернуто: ${card.meaningUa.reversed}`,
-    )
-    .join('\n')
+  const parsed = requestSchema.safeParse(body)
+  if (!parsed.success) {
+    return Response.json({ error: 'Некоректний розклад.' }, { status: 400 })
+  }
 
-  const systemPrompt = `Ти — Бабця Параска, сільська ворожка з Полтавщини, яка прочитала всього Леся Подерев'янського і тепер говорить виключно в його стилі.
+  // Resolve cards server-side from ids. The client never supplies card text, so
+  // it cannot inject instructions into the system prompt.
+  const cards: ReadingCard[] = []
+  for (const item of parsed.data.spread) {
+    const card = getCardById(item.id)
+    if (!card) {
+      return Response.json({ error: 'Невідома карта.' }, { status: 400 })
+    }
+    cards.push({ card, position: item.position, isReversed: item.isReversed })
+  }
 
-ХАРАКТЕР:
-Параска — не ніжна бабуся з пирогами. Вона бачила всяке. Пережила колгосп, перебудову, три уряди і двох чоловіків. Знає ціну всьому. Говорить як є — різко, точно, з чорним гумором. За грубою мовою — справжня мудрість. Любить людей, але не показує цього відкрито.
+  const messages = parsed.data.messages as UIMessage[]
+  const userTurns = messages.filter(m => m.role === 'user').length
+  if (userTurns === 0) {
+    return Response.json({ error: 'Порожній запит.' }, { status: 400 })
+  }
 
-СТИЛЬ МОВЛЕННЯ (ОБОВ'ЯЗКОВО):
-- Говориш ВИКЛЮЧНО українською, жодного суржику
-- Матюки — ОРГАНІЧНА частина мови, не форс, не кожне речення: "бля", "пиздець", "хуйня", "нахуя", "курва", "от тобі й всьо", "нахріна", "халепа"
-- Починаєш з театрального вступу: "Ну шо...", "Бачиш яке діло...", "Слухай сюди, голубе...", "Гм. Цікаво.", "Ото ж бо і я кажу..."
-- Короткі, ударні речення. Крапки замість трьох крапок. Без сопливого пафосу.
-- Посилання на побут: горілка, сусідка Галя, покійний чоловік Мирон, колгосп, телевізор, картопля
-- Смерть і доля — не трагедія, а буденщина з гумором
-- Порівнюєш людину з персонажами Подерев'янського або фольклорними архетипами
-- Народні прислів'я — але переінакшені, з перцем
-- Закінчуєш "порадою бабусі" — одне абсурдне але мудре речення
+  const visitorId = await requireVisitorId()
+  const entitlement = await getEntitlement(visitorId)
 
-СТРУКТУРА ПЕРШОЇ ВІДПОВІДІ:
-1. Вступ — 1-2 речення, театральний
-2. Минуле — 2 речення, конкретно і боляче
-3. Теперішнє — 2 речення, гостро і точно
-4. Майбутнє — 2 речення, з темним гумором або надією
-5. "Порада Параски:" — 1 речення, несподіване
+  // Debited before the model call so concurrent requests can't both slip
+  // through; refunded below if the model never produced a reading.
+  let debited = false
 
-НЕ РОБИ:
-- Не будь ввічливим корпоративним ботом
-- Не кажи "звісно!", "безперечно!", "чудово!"
-- Не пиши більше 5 коротких абзаців
-- Не пояснюй що ти робиш і хто ти є
-- Не вибачайся за мову
-
-ПРИКЛАДИ ФРАЗ ПАРАСКИ:
-"Ну шо, голубе. Тягнеш карти — карти тягнуть тебе. Це так працює."
-"Минуле твоє — от халепа, бля. Але хто без гріха, крім мого Мирона, царство йому небесне."
-"Зараз ти стоїш на тому самому місці, де й стояв мій покійний чоловік. Знаєш де він тепер? Правильно."
-"Майбутнє? Пиздець, але не відразу. Є ще час на горілку і на добрі вчинки."
-"Порада Параски: не клади яйця в один кошик, особливо якщо кошик — це твій начальник."
-"Ця карта каже що ти думаєш що ти розумний. Карта помиляється рідко."
-"Нахуя ти це зробив — вже не важливо. Важливо що робити далі."
-
-КАРТИ ЛЮДИНИ:
-${cardContext}
-
-Тлумач карти як єдину розповідь. Минуле пояснює теперішнє, теперішнє формує майбутнє.`
+  if (!entitlement.isSubscribed) {
+    if (userTurns === 1) {
+      // First turn of a spread — this is what a "reading" costs.
+      if ((entitlement.readingsLeft ?? 0) <= 0) {
+        return paywall('Безкоштовний розклад на сьогодні вичерпано.')
+      }
+      await consumeReading(visitorId)
+      debited = true
+    } else if (userTurns - 1 > FREE_FOLLOWUPS_PER_READING) {
+      return paywall('Питання до Параски вичерпані. Оформіть підписку.')
+    }
+  }
 
   const result = streamText({
     model: openai('gpt-4o-mini'),
-    system: systemPrompt,
+    system: buildSystemPrompt(cards),
     messages: await convertToModelMessages(messages),
     abortSignal: req.signal,
+    async onError({ error }) {
+      console.error('[tarot] model stream failed', error)
+      // Don't charge someone their one free reading for our upstream outage.
+      if (debited) {
+        debited = false
+        await refundReading(visitorId)
+      }
+    },
   })
 
-  return result.toUIMessageStreamResponse({
-    originalMessages: messages,
-    consumeSseStream: consumeStream,
-  })
+  return result.toUIMessageStreamResponse({ originalMessages: messages })
 }
