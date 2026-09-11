@@ -41,12 +41,12 @@ export async function POST(request: Request) {
   try {
     switch (event.type) {
       case 'checkout.session.completed':
-        await handleCheckoutCompleted(event.data.object)
+        await handleCheckoutCompleted(event.data.object, event.created)
         break
       case 'customer.subscription.created':
       case 'customer.subscription.updated':
       case 'customer.subscription.deleted':
-        await handleSubscriptionChange(event.data.object)
+        await handleSubscriptionChange(event.data.object, event.created)
         break
       default:
         return NextResponse.json({ received: true, ignored: event.type })
@@ -61,7 +61,10 @@ export async function POST(request: Request) {
   return NextResponse.json({ received: true })
 }
 
-async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
+async function handleCheckoutCompleted(
+  session: Stripe.Checkout.Session,
+  eventCreated: number,
+) {
   const visitorId = visitorIdFromMetadata(session)
   const customerId =
     typeof session.customer === 'string' ? session.customer : session.customer?.id
@@ -85,10 +88,13 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   // Re-fetch rather than trusting the session's expansion state, so the record
   // reflects the subscription as Stripe currently sees it.
   const subscription = await getStripe().subscriptions.retrieve(subscriptionId)
-  await saveSubscription(toSubscriptionRecord(subscription, visitorId))
+  await saveSubscription(toSubscriptionRecord(subscription, visitorId, eventCreated))
 }
 
-async function handleSubscriptionChange(subscription: Stripe.Subscription) {
+async function handleSubscriptionChange(
+  subscription: Stripe.Subscription,
+  eventCreated: number,
+) {
   const customerId =
     typeof subscription.customer === 'string'
       ? subscription.customer
@@ -106,5 +112,13 @@ async function handleSubscriptionChange(subscription: Stripe.Subscription) {
     return
   }
 
-  await saveSubscription(toSubscriptionRecord(subscription, visitorId))
+  const applied = await saveSubscription(
+    toSubscriptionRecord(subscription, visitorId, eventCreated),
+  )
+  if (!applied) {
+    console.info('[stripe] dropped out-of-order subscription event', {
+      subscriptionId: subscription.id,
+      eventCreated,
+    })
+  }
 }

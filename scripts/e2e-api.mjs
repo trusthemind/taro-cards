@@ -16,6 +16,10 @@ import { createHmac } from 'node:crypto'
 
 const BASE = 'http://localhost:3000'
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET ?? 'whsec_localtestsecret'
+// Read from env, not hardcoded: the server maps a price id back to a plan name
+// by comparing against its own STRIPE_PRICE_*, so the two must agree.
+const PRICE_MONTHLY = process.env.STRIPE_PRICE_MONTHLY ?? 'price_test_monthly'
+const PRICE_YEARLY = process.env.STRIPE_PRICE_YEARLY ?? 'price_test_yearly'
 
 let pass = 0, fail = 0
 let modelWorks = false
@@ -222,7 +226,7 @@ console.log('\n== 7. Webhook grants and revokes entitlement ==')
   const visitorId = jar.get('taros_vid').split('.')[0]
   const periodEnd = Math.floor(Date.now() / 1000) + 30 * 86400
 
-  const subscription = (status, cancelAtPeriodEnd = false, price = 'price_test_monthly') => ({
+  const subscription = (status, cancelAtPeriodEnd = false, price = PRICE_MONTHLY) => ({
     id: 'sub_test_123',
     object: 'subscription',
     customer: 'cus_test_123',
@@ -257,7 +261,7 @@ console.log('\n== 7. Webhook grants and revokes entitlement ==')
   check('portal finds the customer once subscribed (no longer 404)', p.status !== 404, `got ${p.status}`)
 
   // Yearly price maps to the yearly plan.
-  body = event('customer.subscription.updated', subscription('active', true, 'price_test_yearly'))
+  body = event('customer.subscription.updated', subscription('active', true, PRICE_YEARLY))
   await postHook(body, sign(body, WEBHOOK_SECRET))
   ent = await req(jar, '/api/subscription')
   check('plan switches to yearly', ent.json?.plan === 'yearly', JSON.stringify(ent.json))
@@ -294,7 +298,7 @@ console.log('\n== 8. Webhook matches a subscription by customer id alone ==')
 
   const noMeta = JSON.stringify({
     id: 'evt_nm', object: 'event', type: 'customer.subscription.updated',
-    data: { object: { id: 'sub_orphan', object: 'subscription', customer: 'cus_orphan_1', status: 'active', cancel_at_period_end: false, cancel_at: null, ended_at: null, metadata: {}, items: { data: [{ current_period_end: periodEnd, price: { id: 'price_test_monthly' } }] } } },
+    data: { object: { id: 'sub_orphan', object: 'subscription', customer: 'cus_orphan_1', status: 'active', cancel_at_period_end: false, cancel_at: null, ended_at: null, metadata: {}, items: { data: [{ current_period_end: periodEnd, price: { id: PRICE_MONTHLY } }] } } },
   })
   r = await postHook(noMeta, sign(noMeta, WEBHOOK_SECRET))
   check('metadata-less subscription event accepted', r.status === 200, `got ${r.status}`)

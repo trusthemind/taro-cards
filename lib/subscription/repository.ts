@@ -2,7 +2,7 @@ import 'server-only'
 import { getKv } from '@/lib/kv'
 import { FREE_READINGS_PER_DAY } from '@/lib/config/plans'
 import type { Entitlement, SubscriptionRecord } from './types'
-import { isActive } from './types'
+import { isEntitled } from './types'
 
 const DAY_SECONDS = 60 * 60 * 24
 
@@ -17,10 +17,36 @@ export async function getSubscription(visitorId: string): Promise<SubscriptionRe
   return getKv().get<SubscriptionRecord>(key.subscription(visitorId))
 }
 
-export async function saveSubscription(record: SubscriptionRecord): Promise<void> {
+/**
+ * Persists a record unless an event we have already applied was newer.
+ *
+ * Stripe explicitly does not guarantee webhook ordering, and its retries make
+ * inversions likely rather than theoretical: a `customer.subscription.deleted`
+ * can land before a retried `customer.subscription.updated` from minutes
+ * earlier. Applied blindly, the older event would resurrect a cancelled
+ * subscription and hand out free access indefinitely.
+ *
+ * Records with no `eventCreated` (an admin write, or a pre-existing row) are
+ * treated as having no opinion about ordering and are overwritten.
+ *
+ * @returns whether the write was applied.
+ */
+export async function saveSubscription(record: SubscriptionRecord): Promise<boolean> {
   const kv = getKv()
+  const existing = await kv.get<SubscriptionRecord>(key.subscription(record.visitorId))
+
+  if (
+    existing &&
+    existing.eventCreated != null &&
+    record.eventCreated != null &&
+    record.eventCreated < existing.eventCreated
+  ) {
+    return false
+  }
+
   await kv.set(key.subscription(record.visitorId), record)
   await kv.set(key.visitorByCustomer(record.customerId), record.visitorId)
+  return true
 }
 
 export async function findVisitorByCustomer(customerId: string): Promise<string | null> {
@@ -63,7 +89,8 @@ export async function getEntitlement(visitorId: string | null): Promise<Entitlem
   }
 
   const record = await getSubscription(visitorId)
-  const subscribed = isActive(record)
+  // Checked against the clock, not just the stored status — see isEntitled.
+  const subscribed = isEntitled(record)
 
   if (subscribed && record) {
     return {

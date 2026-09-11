@@ -39,10 +39,14 @@ function idOf(value: string | { id: string } | null | undefined): string | null 
  * `current_period_end` moved from the subscription to its items in the
  * 2025-03 API, so it is read off the first item. Falls back to the
  * subscription's cancel/end timestamps when there are no items.
+ *
+ * `eventCreated` is the `created` of the webhook event that carried this
+ * subscription; it is what `saveSubscription` uses to reject stale events.
  */
 export function toSubscriptionRecord(
   subscription: Stripe.Subscription,
   visitorId: string,
+  eventCreated: number | null = null,
 ): SubscriptionRecord {
   const item = subscription.items?.data?.[0]
   const customerId = idOf(subscription.customer)
@@ -59,6 +63,7 @@ export function toSubscriptionRecord(
     currentPeriodEnd:
       item?.current_period_end ?? subscription.cancel_at ?? subscription.ended_at ?? null,
     cancelAtPeriodEnd: Boolean(subscription.cancel_at_period_end),
+    eventCreated,
     updatedAt: Date.now(),
   }
 }
