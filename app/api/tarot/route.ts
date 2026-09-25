@@ -6,6 +6,7 @@ import { buildSystemPrompt, type ReadingCard } from '@/lib/tarot/prompt'
 import { requireVisitorId } from '@/lib/visitor'
 import { getEntitlement, consumeReading, refundReading } from '@/lib/subscription/server'
 import { FREE_FOLLOWUPS_PER_READING } from '@/lib/config/plans'
+import { READER } from '@/lib/config/reader'
 
 export const maxDuration = 30
 export const runtime = 'nodejs'
@@ -83,13 +84,16 @@ export async function POST(req: Request) {
       await consumeReading(visitorId)
       debited = true
     } else if (userTurns - 1 > FREE_FOLLOWUPS_PER_READING) {
-      return paywall('Питання до Параски вичерпані. Оформіть підписку.')
+      return paywall(`Питання до ${READER.nameGenitive} вичерпані. Оформіть підписку.`)
     }
   }
 
   const result = streamText({
     model: openai('gpt-4o-mini'),
     system: buildSystemPrompt(cards),
+    // Room for the ~260-word first reading in Ukrainian, not for essays.
+    maxOutputTokens: 900,
+    temperature: 0.8,
     messages: await convertToModelMessages(messages),
     abortSignal: req.signal,
     async onError({ error }) {

@@ -97,7 +97,7 @@ not by which screen uses it:
 
 | Layer | Contains | Examples |
 |---|---|---|
-| `components/atoms/` | indivisible UI; no domain knowledge | `CardBack`, `Starfield`, `Ornament`, `ParascaAvatar`, `TypingIndicator`, `ui/*` (shadcn) |
+| `components/atoms/` | indivisible UI; no domain knowledge | `CardBack`, `Starfield`, `Ornament`, `ReaderAvatar`, `TypingIndicator`, `ui/*` (shadcn) |
 | `components/molecules/` | a few atoms bound into one unit | `TarotCard`, `ChatMessage`, `PlanCard`, `SubscriptionStatus` |
 | `components/organisms/` | a self-contained section with its own state | `CardSpread`, `CardSelection`, `TarotChat`, `PricingPlans`, `Paywall` |
 | `components/templates/` | whole-page composition and flow state | `ReadingTemplate`, `PricingTemplate` |

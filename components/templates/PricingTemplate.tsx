@@ -40,7 +40,7 @@ export function PricingTemplate() {
             Оберіть свій шлях
           </h1>
           <p className="mx-auto max-w-lg font-serif text-lg text-muted-foreground">
-            Параска ворожить безкоштовно раз на добу. Підписка знімає всі
+            Один розклад на добу — безкоштовно. Підписка знімає всі
             обмеження — і на розклади, і на питання.
           </p>
         </motion.header>

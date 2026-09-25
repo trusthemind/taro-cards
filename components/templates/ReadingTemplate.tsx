@@ -15,6 +15,7 @@ import { useSubscription } from '@/lib/subscription/useSubscription'
 import { Paywall } from '@/components/organisms/Paywall'
 import { SubscriptionStatus } from '@/components/molecules/SubscriptionStatus'
 import type { PaidPlanId } from '@/lib/config/plans'
+import { READER } from '@/lib/config/reader'
 
 type Phase = 'idle' | 'shuffling' | 'selecting' | 'spread' | 'reading'
 
@@ -142,7 +143,7 @@ export function ReadingTemplate() {
             {subscription.isConfirming
               ? 'Підтверджуємо оплату…'
               : checkoutNotice === 'confirmed'
-                ? 'Дякуємо! Підписку активовано — Параска ворожить без обмежень.'
+                ? `Дякуємо! Підписку активовано — ${READER.name} відповідає без обмежень.`
                 : 'Оплату отримано, підписка активується протягом хвилини. Оновіть сторінку, якщо ліміт не зник.'}
           </p>
         </div>
@@ -162,7 +163,7 @@ export function ReadingTemplate() {
           <p className="font-serif text-lg leading-relaxed text-muted-foreground">
             Три карти розкажуть про ваше минуле, теперішнє і майбутнє.
             <br />
-            <span className="text-sm text-gold/50">Бабця Параска не бреше.</span>
+            <span className="text-sm text-gold/50">Тлумачить {READER.name}, {READER.role}.</span>
           </p>
         </motion.header>
 

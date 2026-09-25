@@ -1,3 +1,5 @@
+import { READER } from './reader'
+
 /**
  * Plan and quota definitions. Imported by both server and client code, so it
  * must stay free of secrets and of `server-only`.
@@ -28,7 +30,7 @@ export const PLANS: Plan[] = [
     periodUa: 'назавжди',
     featuresUa: [
       `${FREE_READINGS_PER_DAY} розклад на добу`,
-      `${FREE_FOLLOWUPS_PER_READING} питання до Параски`,
+      `${FREE_FOLLOWUPS_PER_READING} питання до ${READER.nameGenitive}`,
       'Класичний розклад на три карти',
       'Повна колода — 78 карт',
     ],
@@ -41,7 +43,7 @@ export const PLANS: Plan[] = [
     highlighted: true,
     featuresUa: [
       'Безлімітні розклади',
-      'Безлімітні питання до Параски',
+      `Безлімітні питання до ${READER.nameGenitive}`,
       'Скасування будь-коли',
     ],
   },

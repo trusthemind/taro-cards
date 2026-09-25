@@ -64,10 +64,10 @@ export function Paywall({
                 🔮
               </p>
               <Dialog.Title className="font-sans text-2xl font-bold tracking-wide text-gilded">
-                Параска втомилася ворожити безкоштовно
+                Відкрийте повний доступ
               </Dialog.Title>
               <Dialog.Description className="mx-auto mt-2 max-w-md font-serif text-base text-muted-foreground">
-                {reason ?? 'Безкоштовний ліміт вичерпано.'} Підписка відкриває
+                {reason ? `${reason} ` : ''}Підписка відкриває
                 безлімітні розклади й розмову без обмежень.
               </Dialog.Description>
             </div>

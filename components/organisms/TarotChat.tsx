@@ -7,7 +7,8 @@ import { DefaultChatTransport } from 'ai'
 import { ArrowUp } from 'lucide-react'
 import type { CardInSpread } from '@/lib/tarot'
 import { FREE_FOLLOWUPS_PER_READING } from '@/lib/config/plans'
-import { ParascaAvatar } from '@/components/atoms/Avatar'
+import { ReaderAvatar } from '@/components/atoms/Avatar'
+import { READER } from '@/lib/config/reader'
 import { TypingIndicator } from '@/components/atoms/TypingIndicator'
 import { ChatMessage } from '@/components/molecules/ChatMessage'
 
@@ -88,7 +89,7 @@ export function TarotChat({ cards, isActive, isSubscribed, onPaywall }: Props) {
       const text = input.trim()
       if (!text || isLoading) return
       if (outOfQuestions) {
-        onPaywall('Питання до Параски вичерпані.')
+        onPaywall(`Питання до ${READER.nameGenitive} вичерпані.`)
         return
       }
       void sendMessage({ text })
@@ -109,7 +110,7 @@ export function TarotChat({ cards, isActive, isSubscribed, onPaywall }: Props) {
 
   return (
     <motion.section
-      aria-label="Тлумачення від Бабці Параски"
+      aria-label={`Тлумачення від ${READER.nameGenitive}`}
       className="mx-auto mt-10 w-full max-w-2xl"
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
@@ -117,13 +118,13 @@ export function TarotChat({ cards, isActive, isSubscribed, onPaywall }: Props) {
     >
       <div className="overflow-hidden rounded-2xl border border-gold/20 bg-card/70 shadow-[0_0_60px_oklch(0_0_0/0.5)] backdrop-blur-sm">
         <header className="flex items-center gap-3 border-b border-gold/15 bg-surface-2/40 px-5 py-4">
-          <ParascaAvatar size="md" />
+          <ReaderAvatar size="md" />
           <div>
             <p className="font-sans text-base font-semibold leading-none tracking-wide text-gold">
-              Бабця Параска
+              {READER.name}
             </p>
             <p className="mt-1 font-serif text-xs italic text-muted-foreground">
-              у стилі Леся Подерев&apos;янського
+              {READER.role}
             </p>
           </div>
           <span className="ml-auto flex items-center gap-1.5">
@@ -155,7 +156,7 @@ export function TarotChat({ cards, isActive, isSubscribed, onPaywall }: Props) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
             >
-              <ParascaAvatar />
+              <ReaderAvatar />
               <TypingIndicator />
             </motion.div>
           )}
@@ -177,7 +178,7 @@ export function TarotChat({ cards, isActive, isSubscribed, onPaywall }: Props) {
           className="flex gap-2 border-t border-gold/15 bg-surface-2/20 p-3"
         >
           <label className="sr-only" htmlFor="tarot-question">
-            Питання до Параски
+            Питання до {READER.nameGenitive}
           </label>
           <input
             id="tarot-question"

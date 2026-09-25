@@ -3,9 +3,9 @@
 import { motion, useReducedMotion } from 'motion/react'
 import type { UIMessage } from 'ai'
 import { cn } from '@/lib/utils'
-import { ParascaAvatar } from '@/components/atoms/Avatar'
+import { ReaderAvatar } from '@/components/atoms/Avatar'
 
-/** One turn in the transcript — Parasca on the left, the visitor on the right. */
+/** One turn in the transcript — the reader on the left, the visitor on the right. */
 export function ChatMessage({ message }: { message: UIMessage }) {
   const reduceMotion = useReducedMotion()
   const isUser = message.role === 'user'
@@ -17,7 +17,7 @@ export function ChatMessage({ message }: { message: UIMessage }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: reduceMotion ? 0 : 0.35 }}
     >
-      {!isUser && <ParascaAvatar />}
+      {!isUser && <ReaderAvatar />}
       <div
         className={cn(
           'max-w-[88%] rounded-2xl px-4 py-3 font-serif text-base leading-relaxed',

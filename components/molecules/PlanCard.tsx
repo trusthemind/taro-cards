@@ -67,7 +67,7 @@ export function PlanCard({ plan, index, isCurrent, isBusy, disabled, onSelect, o
             : 'invisible hidden border-transparent md:inline-block',
         )}
       >
-        Вибір Параски
+        Найпопулярніший
       </span>
 
       <h3 className="font-sans text-xl font-semibold text-gold">{plan.nameUa}</h3>
