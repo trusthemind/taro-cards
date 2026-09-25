@@ -9,6 +9,7 @@ import {
   toSubscriptionRecord,
   visitorIdFromMetadata,
 } from '@/lib/subscription/server'
+import { markTrialUsed, normalizeEmail, resolveVisitorAlias } from '@/lib/account'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -49,7 +50,9 @@ export async function POST(request: Request) {
       expand: ['subscription'],
     })
 
-    if (visitorIdFromMetadata(session) !== visitorId) {
+    // The session may name this browser's pre-sign-in id; follow the alias.
+    const owner = visitorIdFromMetadata(session)
+    if (!owner || (owner !== visitorId && (await resolveVisitorAlias(owner)) !== visitorId)) {
       return NextResponse.json({ error: 'Сесію не знайдено.' }, { status: 404 })
     }
 
@@ -67,6 +70,8 @@ export async function POST(request: Request) {
       await saveSubscription(
         toSubscriptionRecord(subscription, visitorId, Math.floor(Date.now() / 1000)),
       )
+      const email = normalizeEmail(session.customer_details?.email)
+      if (email && subscription.status === 'trialing') await markTrialUsed(email)
     }
 
     return NextResponse.json(await getEntitlement(visitorId))

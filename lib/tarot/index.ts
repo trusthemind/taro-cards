@@ -6,5 +6,15 @@
  * it on the server.
  */
 export type { TarotCard as TarotCardType, CardInSpread, SpreadPosition } from './types'
-export { POSITION_LABELS_UA } from './types'
 export { ALL_CARDS, getRandomCards, getCardById } from './cards'
+export {
+  SPREADS,
+  DEFAULT_SPREAD_ID,
+  getSpread,
+  isSpreadId,
+  deckSizeFor,
+  QUESTION_MAX_LENGTH,
+  QUESTION_MIN_LENGTH,
+} from './spreads'
+export type { Spread, SpreadId, SpreadPositionDef } from './spreads'
+export { fallbackReading } from './fallback'

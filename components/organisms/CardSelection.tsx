@@ -5,8 +5,8 @@ import { motion, AnimatePresence, useReducedMotion } from 'motion/react'
 import { cn } from '@/lib/utils'
 import { CardBack } from '@/components/atoms/CardBack'
 import type { TarotCardType } from '@/lib/tarot'
+import { plural, CARD_FORMS, CARD_FORMS_ACC } from '@/lib/plural'
 
-const PICK_COUNT = 3
 const CARD_W = 76
 const CARD_H = 124
 const FAN_WIDTH = 370
@@ -24,29 +24,31 @@ function getCardLayout(index: number, total: number) {
   }
 }
 
-function hintFor(count: number): string {
-  if (count === 0) return 'Торкніться карти — відчуєте яка ваша'
-  if (count === PICK_COUNT) return 'Добре. Доля обрана.'
-  const left = PICK_COUNT - count
-  return `Ще ${left} ${left === 1 ? 'карта' : 'карти'}...`
+function hintFor(count: number, pickCount: number): string {
+  if (count === 0) return 'Торкніться карти — відчуєте, яка ваша'
+  if (count === pickCount) return 'Добре. Доля обрана.'
+  const left = pickCount - count
+  return `Ще ${left} ${plural(left, CARD_FORMS)}...`
 }
 
 interface Props {
   deck: TarotCardType[]
+  /** How many cards the spread needs. */
+  pickCount: number
   onConfirm: (selected: TarotCardType[]) => void
 }
 
-export function CardSelection({ deck, onConfirm }: Props) {
+export function CardSelection({ deck, pickCount, onConfirm }: Props) {
   const [selected, setSelected] = useState<number[]>([])
   const reduceMotion = useReducedMotion()
-  const canConfirm = selected.length === PICK_COUNT
+  const canConfirm = selected.length === pickCount
 
   // An ordered list, not a Set: the badge shows pick order, and Set iteration
   // order only happened to match because entries were never removed and re-added.
   const toggle = (index: number) => {
     setSelected(prev => {
       if (prev.includes(index)) return prev.filter(i => i !== index)
-      if (prev.length >= PICK_COUNT) return prev
+      if (prev.length >= pickCount) return prev
       return [...prev, index]
     })
   }
@@ -60,27 +62,27 @@ export function CardSelection({ deck, onConfirm }: Props) {
         transition={reduceMotion ? { duration: 0 } : { delay: 0.3 }}
       >
         <p className="font-sans text-lg font-semibold tracking-wide text-gold">
-          Оберіть {PICK_COUNT} карти з {deck.length}
+          Оберіть {pickCount} {plural(pickCount, CARD_FORMS_ACC)} з {deck.length}
         </p>
         <p
           className="mt-1 font-serif text-base text-muted-foreground"
           aria-live="polite"
         >
-          {hintFor(selected.length)}
+          {hintFor(selected.length, pickCount)}
         </p>
       </motion.div>
 
       <div
         className="relative h-[300px] w-full overflow-visible"
         role="group"
-        aria-label={`Колода з ${deck.length} карт. Оберіть ${PICK_COUNT}.`}
+        aria-label={`Колода з ${deck.length} карт. Оберіть ${pickCount}.`}
       >
         <div className="h-full w-full origin-top scale-[0.72] sm:scale-100">
           {deck.map((card, i) => {
             const { x, baseY, rotate } = getCardLayout(i, deck.length)
             const pickIndex = selected.indexOf(i)
             const isSelected = pickIndex !== -1
-            const isDisabled = !isSelected && selected.length >= PICK_COUNT
+            const isDisabled = !isSelected && selected.length >= pickCount
             const animY = isSelected ? baseY - 42 : baseY
 
             return (

@@ -21,7 +21,7 @@ export function SubscriptionStatus({ state, isLoading, onManage }: Props) {
       <div className="flex items-center gap-2">
         <span className="inline-flex items-center gap-1.5 rounded-full border border-gold/40 bg-gold/10 px-3 py-1.5 font-sans text-xs tracking-wide text-gold">
           <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-          {state.plan === 'yearly' ? 'Відьма' : 'Посвячена'}
+          {state.status === 'trialing' ? 'Пробний період' : state.plan === 'yearly' ? 'Річний' : 'Місячний'}
         </span>
         <button
           type="button"

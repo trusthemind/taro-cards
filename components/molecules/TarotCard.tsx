@@ -4,17 +4,24 @@ import { useState } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
-import type { TarotCard as TarotCardType, SpreadPosition } from '@/lib/tarot/types'
-import { POSITION_LABELS_UA } from '@/lib/tarot/types'
+import type { TarotCard as TarotCardType } from '@/lib/tarot/types'
 import { CardBack } from '@/components/atoms/CardBack'
 
 interface Props {
   card: TarotCardType
-  position: SpreadPosition
+  /** Position label shown above the card, e.g. «Минуле». */
+  positionLabel: string
   isReversed: boolean
   isRevealed: boolean
   animationDelay?: number
   onReveal?: () => void
+  /** `sm` for large spreads (Celtic Cross) so ten cards fit the page. */
+  size?: 'md' | 'sm'
+}
+
+const SIZES = {
+  md: { box: 'w-[104px] sm:w-[152px]', card: 'h-[172px] w-[104px] sm:h-[250px] sm:w-[152px]' },
+  sm: { box: 'w-[88px] sm:w-[120px]', card: 'h-[146px] w-[88px] sm:h-[200px] sm:w-[120px]' },
 }
 
 const SUIT_SYMBOLS: Record<string, string> = {
@@ -26,22 +33,23 @@ const SUIT_SYMBOLS: Record<string, string> = {
 
 export function TarotCard({
   card,
-  position,
+  positionLabel,
   isReversed,
   isRevealed,
   animationDelay = 0,
   onReveal,
+  size = 'md',
 }: Props) {
   const [imgError, setImgError] = useState(false)
   const reduceMotion = useReducedMotion()
 
   const label = isRevealed
-    ? `${POSITION_LABELS_UA[position]}: ${card.nameUa}${isReversed ? ', перевернута' : ''}`
-    : `Відкрити карту в позиції «${POSITION_LABELS_UA[position]}»`
+    ? `${positionLabel}: ${card.nameUa}${isReversed ? ', перевернута' : ''}`
+    : `Відкрити карту в позиції «${positionLabel}»`
 
   return (
     <motion.div
-      className="flex w-[104px] flex-col items-center gap-3 sm:w-[152px]"
+      className={cn('flex flex-col items-center gap-3', SIZES[size].box)}
       initial={{ opacity: 0, y: 40 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{
@@ -51,7 +59,7 @@ export function TarotCard({
       }}
     >
       <span className="font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-gold/70 sm:text-xs sm:tracking-[0.22em]">
-        {POSITION_LABELS_UA[position]}
+        {positionLabel}
       </span>
 
       {/*
@@ -65,7 +73,8 @@ export function TarotCard({
         disabled={isRevealed}
         onClick={() => !isRevealed && onReveal?.()}
         className={cn(
-          'perspective-1000 h-[172px] w-[104px] rounded-xl sm:h-[250px] sm:w-[152px]',
+          'perspective-1000 rounded-xl',
+          SIZES[size].card,
           !isRevealed && 'cursor-pointer',
           isRevealed && 'cursor-default',
         )}

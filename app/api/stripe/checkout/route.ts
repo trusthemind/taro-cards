@@ -4,6 +4,9 @@ import { isPaidPlanId } from '@/lib/config/plans'
 import { requireVisitorId } from '@/lib/visitor'
 import { getStripe, priceIdForPlan, getSubscription } from '@/lib/subscription/server'
 import { isEntitled } from '@/lib/subscription/types'
+import { getAccountForVisitor } from '@/lib/account'
+import { trialDaysFor } from '@/lib/subscription/trial'
+import { track } from '@/lib/analytics/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -43,6 +46,9 @@ export async function POST(request: Request) {
     )
   }
 
+  const account = await getAccountForVisitor(visitorId)
+  const trialDays = await trialDaysFor(existing !== null, account?.email ?? null)
+
   try {
     const session = await getStripe().checkout.sessions.create({
       mode: 'subscription',
@@ -50,10 +56,25 @@ export async function POST(request: Request) {
       // Reuse the customer so repeat purchases don't fragment billing history.
       ...(existing?.customerId
         ? { customer: existing.customerId }
-        : { customer_creation: 'always' as const }),
+        : account
+          ? { customer_email: account.email }
+          : { customer_creation: 'always' as const }),
       client_reference_id: visitorId,
       metadata: { visitorId, plan },
-      subscription_data: { metadata: { visitorId, plan } },
+      subscription_data: {
+        metadata: { visitorId, plan },
+        ...(trialDays > 0
+          ? {
+              trial_period_days: trialDays,
+              // No card on file when the trial ends → cancel, never an
+              // unpaid subscription that keeps granting access.
+              trial_settings: { end_behavior: { missing_payment_method: 'cancel' as const } },
+            }
+          : {}),
+      },
+      // A card is taken up front even for a trial, so it converts without a
+      // second step; Stripe emails the reminder before the first charge.
+      payment_method_collection: 'always',
       allow_promotion_codes: true,
       success_url: `${env.appUrl}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${env.appUrl}/pricing?checkout=cancelled`,
@@ -62,6 +83,7 @@ export async function POST(request: Request) {
     if (!session.url) {
       throw new Error('Stripe returned a session without a URL')
     }
+    await track('checkout_started')
     return NextResponse.json({ url: session.url })
   } catch (error) {
     console.error('[stripe] checkout session failed', error)

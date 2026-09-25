@@ -47,6 +47,29 @@ export const env = {
   get upstashRedisToken() {
     return optional('UPSTASH_REDIS_REST_TOKEN')
   },
+  /** Resend API key for magic-link and reminder emails. Optional in dev. */
+  get resendApiKey() {
+    return optional('RESEND_API_KEY')
+  },
+  get emailFrom() {
+    return optional('EMAIL_FROM') ?? 'Містичне Таро <onboarding@resend.dev>'
+  },
+  /** Free-trial length for first-time subscribers; 0 disables the trial. */
+  get trialDays() {
+    const raw = Number(optional('STRIPE_TRIAL_DAYS') ?? 7)
+    return Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : 7
+  },
+  /** Bearer token for /api/admin/stats. Unset means the endpoint is closed. */
+  get adminToken() {
+    return optional('ADMIN_TOKEN')
+  },
+  /** Vercel Cron sends `Authorization: Bearer <CRON_SECRET>`. */
+  get cronSecret() {
+    return optional('CRON_SECRET')
+  },
+  get openaiConfigured() {
+    return Boolean(optional('OPENAI_API_KEY'))
+  },
   get appUrl() {
     const explicit = optional('NEXT_PUBLIC_APP_URL')
     if (explicit) return explicit.replace(/\/$/, '')

@@ -20,6 +20,10 @@ export interface Kv {
   increment(key: string, ttlSeconds: number): Promise<number>
   /** Decrements a counter without letting it fall below zero. */
   decrement(key: string): Promise<number>
+  /** Adds a member to a set; returns true if it was not there before. */
+  setAdd(key: string, member: string): Promise<boolean>
+  setRemove(key: string, member: string): Promise<void>
+  setMembers(key: string): Promise<string[]>
 }
 
 interface MemoryEntry {
@@ -73,6 +77,26 @@ function createMemoryKv(): Kv {
       const next = Math.max(0, existing.value - 1)
       store.set(key, { value: next, expiresAt: existing.expiresAt })
       return next
+    },
+    async setAdd(key: string, member: string) {
+      const existing = read(key)
+      const members = new Set<string>(Array.isArray(existing?.value) ? (existing.value as string[]) : [])
+      const added = !members.has(member)
+      members.add(member)
+      store.set(key, { value: [...members], expiresAt: existing?.expiresAt ?? null })
+      return added
+    },
+    async setRemove(key: string, member: string) {
+      const existing = read(key)
+      if (!existing || !Array.isArray(existing.value)) return
+      store.set(key, {
+        value: (existing.value as string[]).filter(m => m !== member),
+        expiresAt: existing.expiresAt,
+      })
+    },
+    async setMembers(key: string) {
+      const existing = read(key)
+      return Array.isArray(existing?.value) ? [...(existing.value as string[])] : []
     },
   }
 }
@@ -131,6 +155,15 @@ function createUpstashKv(url: string, token: string): Kv {
         return 0
       }
       return next
+    },
+    async setAdd(key: string, member: string) {
+      return (await command<number>(['SADD', key, member])) === 1
+    },
+    async setRemove(key: string, member: string) {
+      await command(['SREM', key, member])
+    },
+    async setMembers(key: string) {
+      return (await command<string[] | null>(['SMEMBERS', key])) ?? []
     },
   }
 }

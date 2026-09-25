@@ -1,5 +1,6 @@
 'use client'
 
+import { plural, DAY_FORMS } from '@/lib/plural'
 import { motion, useReducedMotion } from 'motion/react'
 import { Check, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -20,9 +21,20 @@ interface Props {
    * concurrent subscription.
    */
   onManage?: () => void
+  /** Free-trial days Checkout will grant; changes the call to action. */
+  trialDays?: number
 }
 
-export function PlanCard({ plan, index, isCurrent, isBusy, disabled, onSelect, onManage }: Props) {
+export function PlanCard({
+  plan,
+  index,
+  isCurrent,
+  isBusy,
+  disabled,
+  onSelect,
+  onManage,
+  trialDays = 0,
+}: Props) {
   const reduceMotion = useReducedMotion()
   const payable = isPaidPlanId(plan.id)
 
@@ -79,6 +91,9 @@ export function PlanCard({ plan, index, isCurrent, isBusy, disabled, onSelect, o
         </span>
         <span className="font-serif text-sm text-muted-foreground">{plan.periodUa}</span>
       </p>
+      {payable && trialDays > 0 && !onManage && !isCurrent && (
+        <p className="mt-1 font-serif text-sm text-gold/80">перші {trialDays} {plural(trialDays, DAY_FORMS)} — безкоштовно</p>
+      )}
 
       <ul className="mt-5 flex flex-1 flex-col gap-2.5">
         {plan.featuresUa.map(feature => (
@@ -111,7 +126,13 @@ export function PlanCard({ plan, index, isCurrent, isBusy, disabled, onSelect, o
             )}
           >
             {isBusy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-            {isBusy ? 'Відкриваємо Stripe…' : onManage ? 'Змінити в кабінеті' : 'Обрати тариф'}
+            {isBusy
+              ? 'Відкриваємо Stripe…'
+              : onManage
+                ? 'Змінити в кабінеті'
+                : trialDays > 0
+                  ? `Спробувати ${trialDays} ${plural(trialDays, DAY_FORMS)} безкоштовно`
+                  : 'Обрати тариф'}
           </button>
         ) : (
           <p className="py-3 text-center font-serif text-sm text-muted-foreground">

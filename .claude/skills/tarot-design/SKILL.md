@@ -98,9 +98,9 @@ not by which screen uses it:
 | Layer | Contains | Examples |
 |---|---|---|
 | `components/atoms/` | indivisible UI; no domain knowledge | `CardBack`, `Starfield`, `Ornament`, `ReaderAvatar`, `TypingIndicator`, `ui/*` (shadcn) |
-| `components/molecules/` | a few atoms bound into one unit | `TarotCard`, `ChatMessage`, `PlanCard`, `SubscriptionStatus` |
-| `components/organisms/` | a self-contained section with its own state | `CardSpread`, `CardSelection`, `TarotChat`, `PricingPlans`, `Paywall` |
-| `components/templates/` | whole-page composition and flow state | `ReadingTemplate`, `PricingTemplate` |
+| `components/molecules/` | a few atoms bound into one unit | `TarotCard`, `ChatMessage`, `PlanCard`, `SubscriptionStatus`, `QuestionField`, `PageHeader` |
+| `components/organisms/` | a self-contained section with its own state | `CardSpread`, `CardSelection`, `TarotChat`, `PricingPlans`, `Paywall`, `DailyCard`, `SpreadPicker` |
+| `components/templates/` | whole-page composition and flow state | `ReadingTemplate`, `PricingTemplate`, `LoginTemplate`, `HistoryTemplate`, `AccountTemplate` |
 | `app/**/page.tsx` | the "pages" layer — routing and metadata only | |
 
 Rules:
@@ -128,8 +128,8 @@ in `components/atoms/ui/`. Afterwards:
 ## Looking at the result
 
 `.mcp.json` also wires up the Playwright MCP (headless, isolated profile). After
-a UI change, start `pnpm dev` and walk the flow — idle → shuffle → select →
-reveal → chat → paywall → /pricing — at 1440×900 and 390×844. Check for
+a UI change, start `pnpm dev` and walk the flow — daily card → question → spread →
+shuffle → select → reveal → chat → paywall → /pricing → /login → /history — at 1440×900 and 390×844. Check for
 horizontal overflow (`scrollWidth - innerWidth` must be 0), that the paywall
 traps focus and hands it back on Escape, and screenshot both viewports before
 calling it done.

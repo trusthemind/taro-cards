@@ -1,9 +1,13 @@
 # Містичне Таро
 
-ШІ-ворожіння на картах таро українською. Три карти — минуле, теперішнє,
-майбутнє — і тарологиня Марта (ім'я — у `lib/config/reader.ts`), ШІ-тлумачення
-якої спирається на значення карт, позиції та загальні ознаки розкладу
-(`lib/tarot/prompt.ts`).
+ШІ-ворожіння на картах таро українською. Людина ставить питання, обирає
+розклад (від однієї карти «так чи ні» до Кельтського хреста), тягне карти — і
+тарологиня Марта (ім'я — у `lib/config/reader.ts`) тлумачить їх з огляду на
+питання, позиції та загальні ознаки розкладу (`lib/tarot/prompt.ts`).
+
+Щоб поверталися: карта дня з серією і бонусним розкладом кожні 7 днів,
+нагадування на пошту, журнал розкладів з продовженням розмови, акаунти через
+email-посилання, 7-денний trial.
 
 Next.js 16 (App Router) · React 19 · Tailwind v4 · Vercel AI SDK · Stripe.
 
@@ -22,24 +26,38 @@ UI — **Atomic Design**. Імпорти йдуть тільки вниз:
 
 ```
 app/                    маршрути Next.js — це шар "pages"
-  api/tarot                  стрім тлумачення + перевірка ліміту
-  api/subscription           поточні права доступу відвідувача
-  api/stripe/*               checkout, billing portal, webhook
+  api/tarot                  стрім тлумачення + ліміт + збереження в журнал
+  api/subscription           права доступу, trial, email; позначає «активний сьогодні»
+  api/stripe/*               checkout, confirm, billing portal, webhook
+  api/auth/*                 magic link: request → verify (POST), logout
+  api/me                     хто увійшов, налаштування нагадувань
+  api/daily                  карта дня і серія
+  api/history[/id]           журнал розкладів
+  api/events                 клієнтські події аналітики (білий список)
+  api/admin/stats            метрики, Bearer $ADMIN_TOKEN
+  api/cron/daily             ранкові листи (Vercel Cron, vercel.json)
+  login, account, history    сторінки входу, кабінету, журналу
 components/
   atoms/                неподільні елементи без знання домену
     CardBack, Starfield, Ornament, Avatar, TypingIndicator
     ui/                      примітиви shadcn
   molecules/            кілька атомів як одне ціле
-    TarotCard, ChatMessage, PlanCard, SubscriptionStatus
+    TarotCard, ChatMessage, PlanCard, SubscriptionStatus, QuestionField,
+    FallbackReading, AccountNav, PageHeader
   organisms/            самостійні секції зі своїм станом
-    CardSpread, CardSelection, TarotChat, PricingPlans, Paywall
+    CardSpread, CardSelection, TarotChat, PricingPlans, Paywall,
+    DailyCard, SpreadPicker
   templates/            композиція сторінки і стан флоу
-    ReadingTemplate, PricingTemplate
+    ReadingTemplate, PricingTemplate, LoginTemplate, AccountTemplate,
+    HistoryTemplate, ReadingDetailTemplate
 lib/                    не-UI: домен, конфіг, хуки, сервер
-  tarot/                     колода, типи, системний промпт
-  subscription/              типи, репозиторій, Stripe, хук
-  config/                    env, тарифи
-  kv.ts, visitor.ts, utils.ts, hooks/
+  tarot/                     колода, розклади, промпт, fallback без ШІ
+  subscription/              типи, репозиторій, Stripe, trial, хук
+  analytics/                 події, лічильники, retention
+  config/                    env, тарифи, тарологиня
+  account.ts, identity.ts    акаунти, вхід, перенесення даних між id
+  daily.ts, history.ts       карта дня і серія, журнал
+  kv.ts, visitor.ts, email.ts, dates.ts, utils.ts, hooks/
 ```
 
 Atomic Design — таксономія **тільки для UI**. Доменні моделі, Stripe і
@@ -49,17 +67,53 @@ Atomic Design — таксономія **тільки для UI**. Доменн�
 
 Оплата — Stripe Checkout, керування — Stripe Billing Portal.
 
-Ліміти безкоштовного тарифу задані в `shared/config/plans.ts`
+Ліміти безкоштовного тарифу задані в `lib/config/plans.ts`
 (`FREE_READINGS_PER_DAY`, `FREE_FOLLOWUPS_PER_READING`). API відповідає
-`402` з `code: "subscription_required"`, коли ліміт вичерпано — клієнт на це
-відкриває пейволл.
+`402` з `code: "subscription_required"`, коли ліміт вичерпано або розклад
+платний — клієнт на це відкриває пейволл. Бонусні розклади за серію карт дня
+витрачаються після щоденного.
 
-### Ідентифікація без акаунтів
+**Trial.** Перша підписка отримує `STRIPE_TRIAL_DAYS` (типово 7) днів
+безкоштовно; картку Checkout бере одразу, без картки наприкінці trial
+підписка скасовується. Один trial на email (`trial:email:*`).
+Увімкніть у Stripe: Settings → Billing → Subscriptions → «Send reminder emails
+before trial ends».
 
-Акаунтів немає, тому підписка прив'язується до анонімного `visitorId` у
-підписаному httpOnly-куках (`shared/lib/visitor.ts`). Він же йде в Stripe як
-`client_reference_id` і в метадані підписки. Наслідок: доступ живе в межах
-браузера. Коли з'являться справжні акаунти — замінюється цей один модуль.
+### Ідентифікація й акаунти
+
+Усе (підписка, ліміт, журнал, серія) прив'язане до `visitorId` у підписаному
+httpOnly-куках (`lib/visitor.ts`). Акаунт — це `email → канонічний visitorId`
+(`lib/account.ts`). Вхід через одноразове посилання на пошту (15 хв):
+на новому пристрої кука просто перемикається на канонічний id, тож дані
+«їдуть» за людиною без другої моделі зберігання.
+
+- Якщо до входу браузер уже мав свою підписку чи журнал — вони
+  переносяться в акаунт, а старий id стає псевдонімом, щоб вебхуки Stripe зі
+  старим id у метаданих теж потрапили куди треба (`lib/identity.ts`).
+- Якщо підписку оплатили анонімно, а куку втрачено — вхід з email, яким
+  платили, знаходить підписку в Stripe за email і повертає доступ.
+- Посилання відкривається на `/login`, який погашає токен POST-запитом:
+  поштові сканери, що «клікають» по посиланнях, не спалять його.
+- Листи — через Resend (`RESEND_API_KEY`, `EMAIL_FROM`). Без ключа в розробці
+  лист друкується в консоль `pnpm dev`, а API повертає `devLink`.
+
+### Утримання й аналітика
+
+- **Карта дня** (`lib/daily.ts`): детермінована для (відвідувач, дата за
+  Києвом), коротке ШІ-тлумачення кешується на день. Серія днів поспіль;
+  кожні 7 днів — бонусний розклад.
+- **Нагадування**: `/api/cron/daily` щоранку (06:00 UTC) надсилає назву карти
+  тим, хто увімкнув це в кабінеті. Потрібен `CRON_SECRET`.
+- **Журнал**: кожен розклад зберігається з питанням і розмовою; розмову можна
+  продовжити. Безкоштовно видно останні 5, з підпискою — усі.
+- **Без ШІ**: якщо модель недоступна, API відповідає `503 ai_unavailable`
+  ще до списання ліміту, а клієнт показує значення карт з колоди.
+- **Метрики** (`lib/analytics`): нові, DAU, retention D1/D7/D30 по когортах і
+  лічильники подій (розклади, пейволл, checkout, trial, карта дня, входи).
+  ```bash
+  curl -H "Authorization: Bearer $ADMIN_TOKEN" https://<домен>/api/admin/stats?days=14
+  ```
+  Перегляди сторінок, як і раніше, — у Vercel Analytics.
 
 ### Налаштування Stripe
 
@@ -96,10 +150,26 @@ pnpm test             # в іншому — typecheck + обидва локал�
 
 ```bash
 pnpm typecheck        # tsc --noEmit
-pnpm test:api         # 49 перевірок API загалом
+pnpm test:api         # 109 перевірок API (з заглушкою OpenAI, див. нижче)
 pnpm test:stripe      # 44 перевірки логіки платежів
 pnpm test:clock       # життєвий цикл підписки на реальному test clock
 ```
+
+### Шлях через модель без ключа
+
+`scripts/lib/openai-stub.mjs` — мінімальна заглушка Responses API. З нею
+`test:api` перевіряє, що промпт містить розклад, карти й питання, що розклад
+списує ліміт і зберігається в журнал, а продовження розмови оновлює той самий
+запис:
+
+```bash
+node scripts/lib/openai-stub.mjs &
+OPENAI_API_KEY=sk-stub OPENAI_BASE_URL=http://localhost:4010/v1 pnpm dev
+OPENAI_STUB=http://localhost:4010 pnpm test:api
+```
+
+Без заглушки й без ключа ці перевірки пропускаються, а решта перевіряє шлях
+`503 ai_unavailable`.
 
 ### Два рівні тестів платежів
 

@@ -19,16 +19,14 @@ export interface TarotCard {
   }
 }
 
-export type SpreadPosition = 'past' | 'present' | 'future'
-
-export const POSITION_LABELS_UA: Record<SpreadPosition, string> = {
-  past: 'Минуле',
-  present: 'Теперішнє',
-  future: 'Майбутнє',
-}
+/** A position id within a spread, e.g. `past` or `obstacle`. See spreads.ts. */
+export type SpreadPosition = string
 
 export interface CardInSpread {
   card: TarotCard
+  /** Position id, unique within the spread. */
   position: SpreadPosition
+  /** Human label for the position, e.g. «Минуле». */
+  positionLabel: string
   isReversed: boolean
 }

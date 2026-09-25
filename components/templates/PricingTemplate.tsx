@@ -9,12 +9,16 @@ import { PricingPlans } from '@/components/organisms/PricingPlans'
 import { Starfield } from '@/components/atoms/Starfield'
 import { Ornament } from '@/components/atoms/Ornament'
 import { STRIPE_PORTAL_LOGIN_URL } from '@/lib/config/public'
+import { useEffect } from 'react'
+import { trackEvent } from '@/lib/analytics/client'
 
 export function PricingTemplate() {
   const subscription = useSubscription()
   const searchParams = useSearchParams()
   const reduceMotion = useReducedMotion()
   const wasCancelled = searchParams.get('checkout') === 'cancelled'
+
+  useEffect(() => trackEvent('pricing_viewed'), [])
 
   return (
     <>
@@ -40,8 +44,8 @@ export function PricingTemplate() {
             Оберіть свій шлях
           </h1>
           <p className="mx-auto max-w-lg font-serif text-lg text-muted-foreground">
-            Один розклад на добу — безкоштовно. Підписка знімає всі
-            обмеження — і на розклади, і на питання.
+            Один розклад на добу і карта дня — безкоштовно. Підписка відкриває
+            всі розклади, безлімітні питання і повний журнал.
           </p>
         </motion.header>
 
@@ -75,6 +79,7 @@ export function PricingTemplate() {
           currentPlan={subscription.plan}
           isBusy={subscription.isRedirecting}
           billingEnabled={subscription.billingEnabled}
+          trialDays={subscription.trialDays}
           error={subscription.error}
           onSelect={subscription.subscribe}
           onManage={subscription.openBillingPortal}

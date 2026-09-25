@@ -1,6 +1,7 @@
 /**
  * End-to-end checks for the API surface: visitor identity, reading validation,
- * free-tier quota, Stripe checkout/portal guards and webhook handling.
+ * free-tier quota, Stripe checkout/portal guards, webhook handling, spreads and
+ * questions, the daily card, magic-link accounts, the journal and analytics.
  *
  * Requires a dev server on :3000 whose STRIPE_WEBHOOK_SECRET matches the
  * constant below (the .env.example default is fine).
@@ -103,7 +104,7 @@ console.log('\n== 3. Reading API input validation ==')
   const r = await req(jar, '/api/tarot', {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
-      messages: [{ role: 'user', parts: [{ type: 'text', text: 'hi' }] }],
+      messages: [{ role: 'user', parts: [{ type: 'text', text: 'Що мене чекає?' }] }],
       spread: [
         { id: 'major-0', position: 'past', isReversed: false },
         { id: 'not-a-real-card', position: 'present', isReversed: false },
@@ -124,19 +125,24 @@ const userMsg = text => ({ id: crypto.randomUUID(), role: 'user', parts: [{ type
 const asstMsg = text => ({ id: crypto.randomUUID(), role: 'assistant', parts: [{ type: 'text', text }] })
 
 {
-  // First reading: allowed, and actually streams from the model.
+  // First reading. Three possible outcomes, each with its own quota rule:
+  //  - no OPENAI_API_KEY → 503 ai_unavailable before anything is charged;
+  //  - key present but the model fails → 200 stream with an error, refunded;
+  //  - model works → 200 stream with text, charged.
   const r = await req(jar, '/api/tarot', {
     method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ messages: [userMsg('Розгадай моє розкладання карт таро.')], spread: SPREAD }),
+    body: JSON.stringify({ messages: [userMsg('Що чекає на мене в роботі?')], spread: SPREAD }),
   })
-  check('1st reading is allowed (200)', r.status === 200, `got ${r.status} ${r.text.slice(0, 120)}`)
-  check('response is a UI message stream', r.res.headers.get('content-type')?.includes('text/event-stream'), r.res.headers.get('content-type') ?? '')
-  // Whether the model actually produced output decides which quota outcome is
-  // correct: a successful reading is charged, a failed one is refunded.
-  modelWorks = r.text.includes('text-delta') || r.text.includes('"type":"text"')
+  if (r.status === 503) {
+    check('no model configured → 503 ai_unavailable', r.json?.code === 'ai_unavailable', JSON.stringify(r.json))
+  } else {
+    check('1st reading is allowed (200)', r.status === 200, `got ${r.status} ${r.text.slice(0, 120)}`)
+    check('response is a UI message stream', r.res.headers.get('content-type')?.includes('text/event-stream'), r.res.headers.get('content-type') ?? '')
+  }
+  modelWorks = r.status === 200 && (r.text.includes('text-delta') || r.text.includes('"type":"text"'))
   if (!modelWorks) {
-    const why = /"(?:message|code)":"([^"]+)"/.exec(r.text)?.[1] ?? 'unknown'
-    console.log(`   (model unavailable — ${why}; asserting refund path instead)`)
+    const why = r.json?.code ?? /"(?:message|code)":"([^"]+)"/.exec(r.text)?.[1] ?? 'unknown'
+    console.log(`   (model unavailable — ${why}; asserting no-charge path instead)`)
   }
 
   await new Promise(res => setTimeout(res, 1200))
@@ -144,7 +150,7 @@ const asstMsg = text => ({ id: crypto.randomUUID(), role: 'assistant', parts: [{
   if (modelWorks) {
     check('successful reading consumes the free quota', after.json?.readingsLeft === 0, JSON.stringify(after.json))
   } else {
-    check('failed reading refunds the free quota', after.json?.readingsLeft === 1, JSON.stringify(after.json))
+    check('failed reading does not spend the free quota', after.json?.readingsLeft === 1, JSON.stringify(after.json))
   }
 
   // Follow-ups within the allowance.
@@ -155,7 +161,8 @@ const asstMsg = text => ({ id: crypto.randomUUID(), role: 'assistant', parts: [{
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ messages: msgs, spread: SPREAD }),
     })
-    check(`follow-up #${n - 1} allowed`, f.status === 200, `got ${f.status}`)
+    // Allowed means "not the paywall"; without a model it is the 503.
+    check(`follow-up #${n - 1} allowed`, f.status === 200 || f.status === 503, `got ${f.status}`)
   }
 
   // One past the allowance.
@@ -267,7 +274,16 @@ console.log('\n== 7. Webhook grants and revokes entitlement ==')
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ messages: [userMsg('розкажи')], spread: SPREAD }),
   })
-  check('subscriber bypasses the daily quota', t.status === 200, `got ${t.status}`)
+  check('subscriber bypasses the daily quota', t.status !== 402, `got ${t.status}`)
+
+  // Premium spreads open up with the subscription.
+  const celtic = ['heart', 'cross', 'root', 'past', 'crown', 'near-future', 'self', 'environment', 'hopes', 'outcome']
+    .map((position, i) => ({ id: `major-${i}`, position, isReversed: i % 3 === 0 }))
+  const premium = await req(jar, '/api/tarot', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ messages: [userMsg('Що мені робити з переїздом?')], spread: celtic, spreadId: 'celtic-cross' }),
+  })
+  check('subscriber may use a premium spread', premium.status !== 402 && premium.status !== 400, `got ${premium.status}`)
 
   // A second Checkout would start a concurrent subscription and double-bill.
   const dup = await req(jar, '/api/stripe/checkout', {
@@ -325,6 +341,258 @@ console.log('\n== 8. Webhook matches a subscription by customer id alone ==')
 
   const ent = await req(fresh, '/api/subscription')
   check('visitor resolved via customer reverse-lookup', ent.json?.isSubscribed === true, JSON.stringify(ent.json))
+}
+
+
+const post = (j, path, body) => req(j, path, {
+  method: 'POST', headers: { 'content-type': 'application/json' },
+  body: typeof body === 'string' ? body : JSON.stringify(body),
+})
+const vid = j => j.get('taros_vid')?.split('.')[0]
+const subEvent = (type, visitorId, { status = 'active', customer, id } = {}) => JSON.stringify({
+  id: 'evt_' + Math.random().toString(36).slice(2), object: 'event', type,
+  created: Math.floor(Date.now() / 1000),
+  data: { object: {
+    id: id ?? 'sub_' + Math.random().toString(36).slice(2), object: 'subscription',
+    customer: customer ?? 'cus_' + Math.random().toString(36).slice(2),
+    status, cancel_at_period_end: false, cancel_at: null, ended_at: null,
+    metadata: { visitorId },
+    items: { data: [{ current_period_end: Math.floor(Date.now() / 1000) + 30 * 86400, price: { id: PRICE_MONTHLY } }] },
+  } },
+})
+const hook = body => postHook(body, sign(body, WEBHOOK_SECRET))
+
+console.log('\n== 9. Spreads and the question ==')
+{
+  const j = makeJar()
+  await req(j, '/api/subscription')
+  const three = [
+    { id: 'major-1', position: 'situation', isReversed: false },
+    { id: 'major-2', position: 'obstacle', isReversed: true },
+    { id: 'major-3', position: 'advice', isReversed: false },
+  ]
+  let r = await post(j, '/api/tarot', { messages: [userMsg('Як бути з колегою?')], spread: three, spreadId: 'situation' })
+  check('free spread with its own positions is accepted', r.status !== 400 && r.status !== 402, `got ${r.status}`)
+
+  r = await post(j, '/api/tarot', { messages: [userMsg('Як бути з колегою?')], spread: SPREAD, spreadId: 'situation' })
+  check('positions from another spread are rejected', r.status === 400, `got ${r.status}`)
+
+  r = await post(j, '/api/tarot', { messages: [userMsg('Як бути?')], spread: SPREAD, spreadId: 'no-such-spread' })
+  check('unknown spread id is rejected', r.status === 400, `got ${r.status}`)
+
+  r = await post(j, '/api/tarot', { messages: [userMsg('?')], spread: SPREAD })
+  check('a question under 3 characters is rejected', r.status === 400, `got ${r.status}`)
+
+  r = await post(j, '/api/tarot', { messages: [userMsg('х'.repeat(301))], spread: SPREAD })
+  check('a question over 300 characters is rejected', r.status === 400, `got ${r.status}`)
+
+  // A fresh visitor: with a working model the reading above spent j's quota.
+  const y = makeJar(); await req(y, '/api/subscription')
+  r = await post(y, '/api/tarot', {
+    messages: [userMsg('Чи варто погоджуватися?')],
+    spread: [{ id: 'cups-1', position: 'answer', isReversed: false }], spreadId: 'yes-no',
+  })
+  check('one-card yes/no spread is accepted', r.status !== 400 && r.status !== 402, `got ${r.status}`)
+
+  const rel = ['you', 'partner', 'bond', 'challenge', 'direction'].map((position, i) => ({ id: `cups-${i + 1}`, position, isReversed: false }))
+  r = await post(j, '/api/tarot', { messages: [userMsg('Що чекає на нас?')], spread: rel, spreadId: 'relationship' })
+  check('premium spread for a free visitor returns 402', r.status === 402 && r.json?.code === 'subscription_required', `got ${r.status} ${JSON.stringify(r.json)}`)
+}
+
+console.log('\n== 10. Card of the day ==')
+{
+  const j = makeJar()
+  const a = await req(j, '/api/daily')
+  check('GET /api/daily returns 200', a.status === 200, `got ${a.status}`)
+  check('daily card names a real card', /^(major|cups|wands|swords|pentacles)-\d+$/.test(a.json?.cardId ?? ''), a.json?.cardId)
+  check('daily card carries a reading text', typeof a.json?.text === 'string' && a.json.text.length > 20)
+  check('first view starts a 1-day streak', a.json?.streak?.count === 1, JSON.stringify(a.json?.streak))
+  check('reward countdown is 6 days', a.json?.rewardIn === 6, String(a.json?.rewardIn))
+  const b = await req(j, '/api/daily')
+  check('same card on a second view the same day', b.json?.cardId === a.json?.cardId && b.json?.isReversed === a.json?.isReversed)
+  check('a second view does not extend the streak', b.json?.streak?.count === 1, JSON.stringify(b.json?.streak))
+}
+
+console.log('\n== 11. Magic-link accounts ==')
+const EMAIL = `e2e-${Date.now()}@example.com`
+async function signInWith(j, email) {
+  const r = await post(j, '/api/auth/request', { email })
+  const token = r.json?.devLink ? new URL(r.json.devLink).searchParams.get('token') : null
+  const v = token ? await post(j, '/api/auth/verify', { token }) : null
+  return { request: r, token, verify: v }
+}
+{
+  let r = await post(makeJar(), '/api/auth/request', { email: 'not-an-email' })
+  check('sign-in rejects a malformed email', r.status === 400, `got ${r.status}`)
+
+  r = await post(makeJar(), '/api/auth/verify', { token: 'x'.repeat(43) })
+  check('verify rejects an unknown token', r.status === 400 && r.json?.code === 'invalid_token', `got ${r.status}`)
+
+  // Device A pays anonymously, then signs in.
+  const a = makeJar()
+  await req(a, '/api/subscription')
+  const customer = 'cus_acct_' + Date.now()
+  await hook(subEvent('customer.subscription.created', vid(a), { customer }))
+  const first = await signInWith(a, EMAIL)
+  check('sign-in request returns a dev link locally', Boolean(first.token), JSON.stringify(first.request.json))
+  check('first sign-in creates the account', first.verify?.status === 200 && first.verify.json?.created === true, JSON.stringify(first.verify?.json))
+
+  const me = await req(a, '/api/me')
+  check('/api/me reports the email', me.json?.email === EMAIL, JSON.stringify(me.json))
+  const again = await post(makeJar(), '/api/auth/verify', { token: first.token })
+  check('a sign-in link works only once', again.status === 400, `got ${again.status}`)
+
+  // Device B: a fresh browser signs in with the same email.
+  const b = makeJar()
+  await req(b, '/api/subscription')
+  const before = vid(b)
+  const second = await signInWith(b, EMAIL)
+  check('second device signs into the existing account', second.verify?.json?.created === false, JSON.stringify(second.verify?.json))
+  check('second device adopts the account visitor id', vid(b) === vid(a) && vid(b) !== before)
+  const entB = await req(b, '/api/subscription')
+  check('subscription follows the account to device B', entB.json?.isSubscribed === true, JSON.stringify(entB.json))
+  check('entitlement reports the signed-in email', entB.json?.email === EMAIL)
+
+  // Reminder preference.
+  const pref = await req(b, '/api/me', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dailyReminder: true }) })
+  check('daily reminder can be switched on', pref.json?.dailyReminder === true, JSON.stringify(pref.json))
+  const anon = await req(makeJar(), '/api/me', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ dailyReminder: true }) })
+  check('reminder change needs a signed-in visitor (401)', anon.status === 401, `got ${anon.status}`)
+
+  // Sign out on B.
+  await post(b, '/api/auth/logout', {})
+  const out = await req(b, '/api/subscription')
+  check('sign-out leaves device B anonymous', out.json?.isSubscribed === false && out.json?.email === null && vid(b) !== vid(a), JSON.stringify(out.json))
+
+  // Device C paid anonymously, then signs into an account that has nothing:
+  // the subscription moves to the account, and later webhooks carrying C's old
+  // id in metadata still land on the account via the alias.
+  const EMAIL2 = `e2e-2-${Date.now()}@example.com`
+  const d = makeJar(); await req(d, '/api/subscription'); await signInWith(d, EMAIL2)
+  const c = makeJar(); await req(c, '/api/subscription')
+  const oldC = vid(c)
+  const subId = 'sub_move_' + Date.now(), cusId = 'cus_move_' + Date.now()
+  await hook(subEvent('customer.subscription.created', oldC, { id: subId, customer: cusId }))
+  await signInWith(c, EMAIL2)
+  const entC = await req(c, '/api/subscription')
+  check('anonymous subscription moves into the account on sign-in', vid(c) === vid(d) && entC.json?.isSubscribed === true, JSON.stringify(entC.json))
+  const late = await hook(subEvent('customer.subscription.deleted', oldC, { id: subId, customer: cusId, status: 'canceled' }))
+  check('late webhook for the old id is accepted', late.status === 200, `got ${late.status}`)
+  const entD = await req(d, '/api/subscription')
+  check('webhook with the pre-sign-in id reaches the account (alias)', entD.json?.isSubscribed === false, JSON.stringify(entD.json))
+
+  // Switching accounts on one browser must not carry account A's data into B.
+  const x = makeJar(); await req(x, '/api/subscription')
+  await signInWith(x, EMAIL)
+  check('browser x is on account A (subscribed)', (await req(x, '/api/subscription')).json?.isSubscribed === true)
+  await signInWith(x, EMAIL2)
+  const onB = await req(x, '/api/subscription')
+  check('switching to account B shows B, not A', onB.json?.email === EMAIL2 && onB.json?.isSubscribed === false, JSON.stringify(onB.json))
+  const backToA = makeJar(); await req(backToA, '/api/subscription'); await signInWith(backToA, EMAIL)
+  check("account A keeps its subscription after x switched away", (await req(backToA, '/api/subscription')).json?.isSubscribed === true)
+
+  // Rate limit: five requests per email per hour.
+  const EMAIL3 = `e2e-3-${Date.now()}@example.com`
+  let last
+  for (let i = 0; i < 6; i++) last = await post(makeJar(), '/api/auth/request', { email: EMAIL3 })
+  check('sign-in requests are rate limited per email (429)', last.status === 429, `got ${last.status}`)
+}
+
+console.log('\n== 12. Journal ==')
+{
+  const j = makeJar()
+  await req(j, '/api/subscription')
+  const list = await req(j, '/api/history')
+  check('empty journal for a new visitor', list.status === 200 && Array.isArray(list.json?.items) && list.json.items.length === 0, JSON.stringify(list.json))
+  check('free journal shows the latest 5', list.json?.limit === 5, String(list.json?.limit))
+  const missing = await req(j, `/api/history/${crypto.randomUUID()}`)
+  check('unknown reading id → 404', missing.status === 404, `got ${missing.status}`)
+  const bad = await req(j, '/api/history/not-a-uuid')
+  check('malformed reading id → 404', bad.status === 404, `got ${bad.status}`)
+}
+
+console.log('\n== 13. Trial eligibility and analytics ==')
+{
+  const j = makeJar()
+  const ent = await req(j, '/api/subscription')
+  check('a new visitor is offered the trial', ent.json?.trialDays === 7, String(ent.json?.trialDays))
+
+  let r = await post(j, '/api/events', { name: 'paywall_shown' })
+  check('whitelisted client event is accepted (204)', r.status === 204, `got ${r.status}`)
+  r = await post(j, '/api/events', { name: 'checkout_completed' })
+  check('server-only event cannot be posted from the client', r.status === 400, `got ${r.status}`)
+
+  r = await req(j, '/api/admin/stats')
+  check('stats need the admin token (401)', r.status === 401, `got ${r.status}`)
+  if (process.env.ADMIN_TOKEN) {
+    r = await req(j, '/api/admin/stats?days=2', { headers: { authorization: `Bearer ${process.env.ADMIN_TOKEN}` } })
+    const today = r.json?.days?.[0]
+    check('stats return today with counters', r.status === 200 && today?.dau > 0 && today?.new > 0, JSON.stringify(today)?.slice(0, 160))
+    check('stats count client events', today?.events?.paywall_shown > 0, JSON.stringify(today?.events))
+    check('stats count sign-ups', today?.events?.signup > 0)
+  } else {
+    skipped.push('admin stats with a token (set ADMIN_TOKEN)')
+  }
+
+  r = await req(j, '/api/cron/daily')
+  check('reminder cron needs CRON_SECRET (401)', r.status === 401, `got ${r.status}`)
+}
+
+console.log('\n== 14. Model path: prompt, charge, journal ==')
+if (!modelWorks) {
+  skipped.push('model path (run with OPENAI_STUB or a real key)')
+} else {
+  const j = makeJar()
+  await req(j, '/api/subscription')
+  const readingId = crypto.randomUUID()
+  const spread = [
+    { id: 'major-0', position: 'situation', isReversed: false },
+    { id: 'swords-3', position: 'obstacle', isReversed: true },
+    { id: 'cups-10', position: 'advice', isReversed: false },
+  ]
+  const question = 'Як мені поговорити з сестрою?'
+  const r = await post(j, '/api/tarot', { messages: [userMsg(question)], spread, spreadId: 'situation', readingId })
+  check('reading streams (200)', r.status === 200, `got ${r.status}`)
+
+  if (process.env.OPENAI_STUB) {
+    const last = await (await fetch(`${process.env.OPENAI_STUB}/__last`)).json()
+    const prompt = JSON.stringify(last?.body ?? {})
+    check('prompt names the spread', prompt.includes('Ситуація, перешкода, порада'))
+    check('prompt carries each card with its position', prompt.includes('Перешкода') && prompt.includes('Трійка Мечів') && prompt.includes('перевернута'))
+    check('prompt carries the question as the first user turn', prompt.includes(question))
+    check('prompt forbids Markdown', prompt.includes('без Markdown'))
+    check('prompt names the crisis line', prompt.includes('7333'))
+    check('output budget matches a three-card spread', last?.body?.max_output_tokens === 900, String(last?.body?.max_output_tokens))
+  }
+
+  await new Promise(res => setTimeout(res, 800))
+  const list = await req(j, '/api/history')
+  check('reading is saved to the journal', list.json?.items?.[0]?.id === readingId, JSON.stringify(list.json)?.slice(0, 200))
+  check('journal keeps the question', list.json?.items?.[0]?.question === question)
+  const detail = await req(j, `/api/history/${readingId}`)
+  check('saved reading has the conversation', detail.json?.messages?.length === 2 && detail.json.messages[1].role === 'assistant', JSON.stringify(detail.json?.messages)?.slice(0, 200))
+  check('saved reading hides the owner id', detail.json && !('owner' in detail.json))
+  const other = await req(makeJar(), `/api/history/${readingId}`)
+  check("another visitor can't open it (404)", other.status === 404, `got ${other.status}`)
+
+  // Continuing the conversation updates the same entry.
+  const follow = await post(j, '/api/tarot', {
+    messages: [userMsg(question), asstMsg(detail.json.messages[1].text), userMsg('А якщо вона не захоче?')],
+    spread, spreadId: 'situation', readingId,
+  })
+  check('follow-up streams (200)', follow.status === 200, `got ${follow.status}`)
+  await new Promise(res => setTimeout(res, 800))
+  const updated = await req(j, `/api/history/${readingId}`)
+  check('follow-up is appended to the saved reading', updated.json?.messages?.length === 4, String(updated.json?.messages?.length))
+  const again = await req(j, '/api/history')
+  check('continuing does not duplicate the journal entry', again.json?.total === 1, String(again.json?.total))
+
+  // Someone else can't overwrite it by reusing the id.
+  const hijack = makeJar(); await req(hijack, '/api/subscription')
+  await post(hijack, '/api/tarot', { messages: [userMsg('Чуже питання тут')], spread, spreadId: 'situation', readingId })
+  await new Promise(res => setTimeout(res, 800))
+  const safe = await req(j, `/api/history/${readingId}`)
+  check("a reused reading id can't overwrite someone's reading", safe.json?.question === question)
 }
 
 console.log('\n' + results.join('\n'))

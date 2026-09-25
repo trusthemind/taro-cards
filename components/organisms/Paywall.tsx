@@ -1,5 +1,6 @@
 'use client'
 
+import { plural, DAY_FORMS } from '@/lib/plural'
 import { useRef } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
@@ -12,6 +13,8 @@ interface Props {
   reason?: string | null
   isBusy: boolean
   billingEnabled: boolean
+  /** Free-trial days on offer; 0 hides the trial copy. */
+  trialDays?: number
   error?: string | null
   onSelect: (plan: PaidPlanId) => void
   onClose: () => void
@@ -31,6 +34,7 @@ export function Paywall({
   reason,
   isBusy,
   billingEnabled,
+  trialDays = 0,
   error,
   onSelect,
   onClose,
@@ -96,13 +100,16 @@ export function Paywall({
                   isCurrent={false}
                   isBusy={isBusy}
                   disabled={!billingEnabled}
+                  trialDays={trialDays}
                   onSelect={onSelect}
                 />
               ))}
             </div>
 
             <p className="mt-6 text-center font-serif text-xs text-muted-foreground/70">
-              Оплата через Stripe. Скасувати можна будь-коли.
+              {trialDays > 0
+                ? `Перші ${trialDays} ${plural(trialDays, DAY_FORMS)} безкоштовно. Нагадаємо до першого списання, скасувати можна будь-коли.`
+                : 'Оплата через Stripe. Скасувати можна будь-коли.'}
             </p>
           </Dialog.Content>
         </Dialog.Overlay>

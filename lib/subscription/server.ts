@@ -13,7 +13,11 @@ export {
   getReadingsUsed,
   consumeReading,
   refundReading,
+  grantBonusReading,
+  getBonusReadings,
+  moveSubscription,
 } from './repository'
+export type { ReadingSource } from './repository'
 export {
   getStripe,
   priceIdForPlan,

@@ -6,6 +6,10 @@ import type { PaidPlanId } from '@/lib/config/plans'
 
 export interface SubscriptionState extends Entitlement {
   billingEnabled: boolean
+  /** Free-trial days Checkout will grant this visitor; 0 when not eligible. */
+  trialDays: number
+  /** Signed-in email, or null for an anonymous visitor. */
+  email: string | null
 }
 
 /** Back-off for the post-checkout poll: about ten seconds in total. */
@@ -19,6 +23,8 @@ const INITIAL: SubscriptionState = {
   cancelAtPeriodEnd: false,
   readingsLeft: null,
   billingEnabled: false,
+  trialDays: 0,
+  email: null,
 }
 
 /**

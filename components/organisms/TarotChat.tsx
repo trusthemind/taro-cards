@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react'
 import { useChat } from '@ai-sdk/react'
-import { DefaultChatTransport } from 'ai'
+import { DefaultChatTransport, type UIMessage } from 'ai'
 import { ArrowUp } from 'lucide-react'
 import type { CardInSpread } from '@/lib/tarot'
 import { FREE_FOLLOWUPS_PER_READING } from '@/lib/config/plans'
@@ -11,18 +11,53 @@ import { ReaderAvatar } from '@/components/atoms/Avatar'
 import { READER } from '@/lib/config/reader'
 import { TypingIndicator } from '@/components/atoms/TypingIndicator'
 import { ChatMessage } from '@/components/molecules/ChatMessage'
+import { FallbackReading } from '@/components/molecules/FallbackReading'
+import type { SpreadId } from '@/lib/tarot'
 
 interface Props {
   cards: CardInSpread[]
+  spreadId: SpreadId
+  /** Client-generated id the server saves the conversation under. */
+  readingId: string
+  /** The visitor's question; sent as the opening message. */
+  question: string
+  /** A saved conversation to continue (from the journal). */
+  initialMessages?: UIMessage[]
   isActive: boolean
   isSubscribed: boolean
+  /** Called after each finished reply, e.g. to refresh the remaining quota. */
+  onReply?: () => void
   /** Called when the API answers 402 so the page can raise the paywall. */
   onPaywall: (reason: string) => void
 }
 
-const OPENING_PROMPT = 'Розгадай моє розкладання карт таро.'
+type ErrorCode = 'subscription_required' | 'ai_unavailable' | null
 
-export function TarotChat({ cards, isActive, isSubscribed, onPaywall }: Props) {
+/** The AI SDK surfaces a non-2xx response as an Error whose message is the body. */
+function errorCode(error: Error | undefined): { code: ErrorCode; message?: string } {
+  if (!error) return { code: null }
+  try {
+    const payload = JSON.parse(error.message) as { code?: string; error?: string }
+    if (payload.code === 'subscription_required' || payload.code === 'ai_unavailable') {
+      return { code: payload.code, message: payload.error }
+    }
+  } catch {
+    // Not a structured error.
+  }
+  return { code: null }
+}
+
+export function TarotChat({
+  cards,
+  spreadId,
+  readingId,
+  question,
+  initialMessages,
+  isActive,
+  isSubscribed,
+  onPaywall,
+  onReply,
+}: Props) {
   const [input, setInput] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
   const initialized = useRef(false)
@@ -41,34 +76,34 @@ export function TarotChat({ cards, isActive, isSubscribed, onPaywall }: Props) {
   )
 
   const transport = useMemo(
-    () => new DefaultChatTransport({ api: '/api/tarot', body: { spread } }),
-    [spread],
+    () => new DefaultChatTransport({ api: '/api/tarot', body: { spread, spreadId, readingId } }),
+    [spread, spreadId, readingId],
   )
 
-  const { messages, sendMessage, status, error } = useChat({ transport })
+  const { messages, sendMessage, regenerate, status, error } = useChat({
+    id: readingId,
+    transport,
+    messages: initialMessages,
+    onFinish: () => onReply?.(),
+  })
 
   const isLoading = status === 'streaming' || status === 'submitted'
 
-  // The AI SDK surfaces a non-2xx response as an Error whose message is the
-  // response body, so the 402 payload has to be recovered by parsing it.
-  useEffect(() => {
-    if (!error) return
-    try {
-      const payload = JSON.parse(error.message) as { code?: string; error?: string }
-      if (payload.code === 'subscription_required') {
-        onPaywall(payload.error ?? 'Ліміт вичерпано.')
-      }
-    } catch {
-      // Not a structured error — the inline notice below covers it.
-    }
-  }, [error, onPaywall])
+  const failure = errorCode(error)
 
+  useEffect(() => {
+    if (failure.code === 'subscription_required') {
+      onPaywall(failure.message ?? 'Ліміт вичерпано.')
+    }
+  }, [failure.code, failure.message, onPaywall])
+
+  // The visitor's question opens the conversation.
   useEffect(() => {
     if (isActive && !initialized.current && messages.length === 0) {
       initialized.current = true
-      void sendMessage({ text: OPENING_PROMPT })
+      void sendMessage({ text: question })
     }
-  }, [isActive, messages.length, sendMessage])
+  }, [isActive, messages.length, sendMessage, question])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
@@ -100,13 +135,12 @@ export function TarotChat({ cards, isActive, isSubscribed, onPaywall }: Props) {
 
   if (!isActive) return null
 
-  // The opening prompt is scaffolding, not something the user typed.
-  const visible = messages.filter(
-    (m, index) => !(m.role === 'user' && index === 0),
-  )
-
+  const visible = messages
+  const hasReply = messages.some(m => m.role === 'assistant')
+  // No reply yet and the model failed: show the deck's own meanings instead.
+  const showFallback = Boolean(error) && failure.code !== 'subscription_required' && !hasReply
   const hasUnstructuredError =
-    error && !error.message.includes('subscription_required')
+    Boolean(error) && failure.code !== 'subscription_required' && !showFallback
 
   return (
     <motion.section
@@ -161,6 +195,14 @@ export function TarotChat({ cards, isActive, isSubscribed, onPaywall }: Props) {
             </motion.div>
           )}
 
+          {showFallback && (
+            <FallbackReading
+              cards={cards}
+              isRetrying={isLoading}
+              onRetry={() => void regenerate()}
+            />
+          )}
+
           {hasUnstructuredError && (
             <p
               role="alert"
@@ -187,7 +229,7 @@ export function TarotChat({ cards, isActive, isSubscribed, onPaywall }: Props) {
             placeholder={
               outOfQuestions ? 'Питання вичерпані — оформіть підписку' : 'Запитайте про ваш розклад...'
             }
-            disabled={isLoading}
+            disabled={isLoading || showFallback}
             autoComplete="off"
             className="flex-1 rounded-xl border border-border/40 bg-input/50 px-4 py-2.5 font-serif text-base text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-gold/50 disabled:opacity-50"
           />

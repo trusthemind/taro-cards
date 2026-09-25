@@ -25,37 +25,41 @@ export const FREE_FOLLOWUPS_PER_READING = 2
 export const PLANS: Plan[] = [
   {
     id: 'free',
-    nameUa: 'Гостя',
+    nameUa: 'Базовий',
     priceUa: '0 грн',
     periodUa: 'назавжди',
     featuresUa: [
       `${FREE_READINGS_PER_DAY} розклад на добу`,
       `${FREE_FOLLOWUPS_PER_READING} питання до ${READER.nameGenitive}`,
-      'Класичний розклад на три карти',
+      'Карта дня і бонус за серію',
+      'Розклади на 1 і 3 карти',
+      'Журнал останніх 5 розкладів',
       'Повна колода — 78 карт',
     ],
   },
   {
     id: 'monthly',
-    nameUa: 'Посвячена',
+    nameUa: 'Місячний',
     priceUa: '149 грн',
     periodUa: 'на місяць',
     highlighted: true,
     featuresUa: [
       'Безлімітні розклади',
       `Безлімітні питання до ${READER.nameGenitive}`,
+      'Стосунки, кар’єра, Кельтський хрест',
+      'Повний журнал розкладів',
       'Скасування будь-коли',
     ],
   },
   {
     id: 'yearly',
-    nameUa: 'Відьма',
+    nameUa: 'Річний',
     priceUa: '1 190 грн',
     periodUa: 'на рік',
     featuresUa: [
-      'Все з тарифу «Посвячена»',
+      'Усе з місячного тарифу',
       'Економія 33% — ≈99 грн на місяць',
-      'Ранній доступ до нових розкладів',
+      'Перші отримуєте нові розклади',
     ],
   },
 ]

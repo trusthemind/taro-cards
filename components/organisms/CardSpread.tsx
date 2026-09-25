@@ -12,6 +12,8 @@ interface Props {
 
 export function CardSpread({ cards, revealedCount, onRevealCard }: Props) {
   const allRevealed = revealedCount >= cards.length
+  // Beyond five cards the full-size layout runs to many rows.
+  const compact = cards.length > 5
   const reduceMotion = useReducedMotion()
 
   return (
@@ -21,16 +23,23 @@ export function CardSpread({ cards, revealedCount, onRevealCard }: Props) {
       animate={{ opacity: 1 }}
       transition={{ duration: reduceMotion ? 0 : 0.4 }}
     >
-      <div className="flex flex-wrap justify-center gap-3 sm:gap-10">
+      <div
+        className={
+          compact
+            ? 'flex max-w-3xl flex-wrap justify-center gap-3 sm:gap-6'
+            : 'flex flex-wrap justify-center gap-3 sm:gap-10'
+        }
+      >
         {cards.map((item, i) => (
           <TarotCard
             key={item.card.id}
             card={item.card}
-            position={item.position}
+            positionLabel={item.positionLabel}
             isReversed={item.isReversed}
             isRevealed={i < revealedCount}
             animationDelay={i * 180}
             onReveal={() => onRevealCard(i)}
+            size={compact ? 'sm' : 'md'}
           />
         ))}
       </div>

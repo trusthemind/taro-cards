@@ -9,6 +9,8 @@ import {
   toSubscriptionRecord,
   visitorIdFromMetadata,
 } from '@/lib/subscription/server'
+import { markTrialUsed, normalizeEmail, resolveVisitorAlias } from '@/lib/account'
+import { track } from '@/lib/analytics/server'
 
 // Signature verification needs the raw, unparsed body.
 export const dynamic = 'force-dynamic'
@@ -67,7 +69,9 @@ async function handleCheckoutCompleted(
   session: Stripe.Checkout.Session,
   eventCreated: number,
 ) {
-  const visitorId = visitorIdFromMetadata(session)
+  const metadataVisitor = visitorIdFromMetadata(session)
+  // A visitor who signed in after paying was aliased to their account's id.
+  const visitorId = metadataVisitor ? await resolveVisitorAlias(metadataVisitor) : null
   const customerId =
     typeof session.customer === 'string' ? session.customer : session.customer?.id
 
@@ -91,6 +95,15 @@ async function handleCheckoutCompleted(
   // reflects the subscription as Stripe currently sees it.
   const subscription = await getStripe().subscriptions.retrieve(subscriptionId)
   await saveSubscription(toSubscriptionRecord(subscription, visitorId, eventCreated))
+
+  await track('checkout_completed')
+  if (subscription.status === 'trialing') {
+    await track('trial_started')
+    // One trial per email: Checkout's email is the only one we have for an
+    // anonymous payer, and it is the one a later sign-in would use.
+    const email = normalizeEmail(session.customer_details?.email)
+    if (email) await markTrialUsed(email)
+  }
 }
 
 async function handleSubscriptionChange(
@@ -102,9 +115,10 @@ async function handleSubscriptionChange(
       ? subscription.customer
       : subscription.customer?.id
 
-  const visitorId =
+  const found =
     visitorIdFromMetadata(subscription) ??
     (customerId ? await findVisitorByCustomer(customerId) : null)
+  const visitorId = found ? await resolveVisitorAlias(found) : null
 
   if (!visitorId) {
     console.warn('[stripe] subscription event could not be matched to a visitor', {

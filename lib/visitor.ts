@@ -6,22 +6,22 @@ import { env } from '@/lib/config/env'
 /**
  * Anonymous visitor identity.
  *
- * The app has no accounts, but a subscription still has to belong to *someone*.
+ * Every request belongs to *someone*, account or not.
  * We mint a random id, store it in an HMAC-signed httpOnly cookie, and use it as
  * the Stripe `client_reference_id`. The signature stops a visitor from typing in
  * somebody else's id and inheriting their subscription.
  *
- * Trade-off worth knowing: identity is per-browser. Clearing cookies (or
- * switching device) mints a new, unrelated id, so `/api/stripe/portal` can no
- * longer find the customer and paid access is not restored here. The only
- * cookie-independent path today is Stripe's hosted portal login link
- * (`NEXT_PUBLIC_STRIPE_PORTAL_LOGIN_URL`, email-based), linked from /pricing:
- * the customer can still see and cancel the subscription there, so they are
- * never stuck paying for something they can't manage.
+ * Accounts sit on top of this rather than replacing it: an account is an
+ * email mapped to one "canonical" visitor id (see lib/account.ts). Signing in
+ * with a magic link on another device re-points that browser's cookie at the
+ * canonical id, so subscriptions, quota and history — all keyed by visitor id —
+ * follow the person without a second storage model.
  *
- * Next step: real identity (email magic link or OAuth). Key subscriptions by
- * account id instead of this cookie, and on sign-in attach any subscription
- * whose Stripe customer email matches. Swap this module out when that lands.
+ * Without an account, identity is still per-browser: clearing cookies mints a
+ * new, unrelated id. Stripe Checkout collects an email, and that email is
+ * registered as an account on payment, so a paying visitor can always get back
+ * in by signing in with it. The Stripe portal login link on /pricing
+ * (`NEXT_PUBLIC_STRIPE_PORTAL_LOGIN_URL`) remains a second way to cancel.
  */
 
 const COOKIE_NAME = 'taros_vid'
@@ -49,6 +49,16 @@ export async function readVisitorId(): Promise<string | null> {
   return cookie ? verify(cookie.value) : null
 }
 
+function writeVisitorCookie(store: Awaited<ReturnType<typeof cookies>>, id: string) {
+  store.set(COOKIE_NAME, `${id}.${sign(id)}`, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: COOKIE_MAX_AGE,
+  })
+}
+
 /**
  * Returns the visitor id, minting and persisting a new one when needed.
  * Only callable where Next.js allows cookie writes (route handlers, actions).
@@ -60,12 +70,30 @@ export async function requireVisitorId(): Promise<string> {
   if (verified) return verified
 
   const id = randomUUID()
-  store.set(COOKIE_NAME, `${id}.${sign(id)}`, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-    maxAge: COOKIE_MAX_AGE,
-  })
+  writeVisitorCookie(store, id)
   return id
+}
+
+/**
+ * Points this browser at an existing visitor id. Used after a verified email
+ * sign-in, so a second device lands on the account's subscription and history.
+ * Never call it with an id the caller has not proven they own.
+ */
+export async function adoptVisitorId(id: string): Promise<void> {
+  writeVisitorCookie(await cookies(), id)
+}
+
+/** Forgets this browser's identity; the next request mints a fresh one. */
+export async function clearVisitorId(): Promise<void> {
+  ;(await cookies()).delete(COOKIE_NAME)
+}
+
+/** Signs an arbitrary value with the session secret (for other cookies). */
+export function signValue(value: string): string {
+  return `${value}.${sign(value)}`
+}
+
+/** Verifies a value produced by `signValue`; null when absent or forged. */
+export function verifySignedValue(value: string | undefined): string | null {
+  return value ? verify(value) : null
 }
