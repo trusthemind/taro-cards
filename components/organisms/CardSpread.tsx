@@ -1,6 +1,6 @@
 'use client'
 
-import { motion } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
 import { TarotCard } from '@/components/molecules/TarotCard'
 import type { CardInSpread } from '@/lib/tarot'
 
@@ -12,13 +12,14 @@ interface Props {
 
 export function CardSpread({ cards, revealedCount, onRevealCard }: Props) {
   const allRevealed = revealedCount >= cards.length
+  const reduceMotion = useReducedMotion()
 
   return (
     <motion.div
       className="flex flex-col items-center gap-6"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.4 }}
+      transition={{ duration: reduceMotion ? 0 : 0.4 }}
     >
       <div className="flex flex-wrap justify-center gap-6 sm:gap-10">
         {cards.map((item, i) => (
@@ -37,8 +38,8 @@ export function CardSpread({ cards, revealedCount, onRevealCard }: Props) {
       {!allRevealed && (
         <motion.p
           className="text-xs text-muted-foreground font-serif"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: [0, 1, 0.5, 1] }}
+          initial={{ opacity: reduceMotion ? 1 : 0 }}
+          animate={reduceMotion ? undefined : { opacity: [0, 1, 0.5, 1] }}
           transition={{ duration: 2, repeat: Infinity }}
         >
           Торкніться карти, щоб відкрити

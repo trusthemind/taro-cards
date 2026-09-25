@@ -19,6 +19,13 @@ const spreadSchema = z
     }),
   )
   .length(3)
+  // Length alone accepted three copies of one card, or three "past" slots.
+  .refine(spread => new Set(spread.map(item => item.id)).size === spread.length, {
+    message: 'Cards in a spread must be distinct',
+  })
+  .refine(spread => new Set(spread.map(item => item.position)).size === spread.length, {
+    message: 'Each position must appear exactly once',
+  })
 
 const requestSchema = z.object({
   messages: z.array(z.any()),

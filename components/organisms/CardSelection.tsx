@@ -57,7 +57,7 @@ export function CardSelection({ deck, onConfirm }: Props) {
         className="text-center"
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: reduceMotion ? 0 : 0.3 }}
+        transition={reduceMotion ? { duration: 0 } : { delay: 0.3 }}
       >
         <p className="font-sans text-lg font-semibold tracking-wide text-gold">
           Оберіть {PICK_COUNT} карти з {deck.length}

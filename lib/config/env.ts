@@ -56,11 +56,31 @@ export const env = {
   },
 }
 
-/** True when Stripe is configured well enough to sell a subscription. */
+/** True when subscriptions can be stored somewhere that survives a restart. */
+export function hasSharedStorage(): boolean {
+  return Boolean(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN)
+}
+
+/**
+ * True when Stripe is configured well enough to sell a subscription.
+ *
+ * Every part of that is load-bearing, because a gap doesn't fail at checkout —
+ * it fails after the customer has paid:
+ *  - without the webhook secret every webhook is rejected, so the payment
+ *    never turns into access;
+ *  - in production without Upstash the entitlement lives in one instance's
+ *    memory and vanishes on the next cold start.
+ * Vercel previews are exempt from the storage rule so a branch can be clicked
+ * through with test keys without provisioning Redis.
+ */
 export function isStripeConfigured(): boolean {
-  return Boolean(
+  const stripeKeys = Boolean(
     process.env.STRIPE_SECRET_KEY &&
+      process.env.STRIPE_WEBHOOK_SECRET &&
       process.env.STRIPE_PRICE_MONTHLY &&
       process.env.STRIPE_PRICE_YEARLY,
   )
+  const isProductionDeployment =
+    process.env.NODE_ENV === 'production' && process.env.VERCEL_ENV !== 'preview'
+  return stripeKeys && (hasSharedStorage() || !isProductionDeployment)
 }

@@ -3,7 +3,8 @@ import type { Metadata } from 'next'
 import { PricingTemplate } from '@/components/templates/PricingTemplate'
 
 export const metadata: Metadata = {
-  title: 'Підписка — Містичне Таро',
+  // The root layout's template appends "· Містичне Таро".
+  title: 'Підписка',
   description:
     'Безлімітні розклади та розмови з Бабцею Параскою. Оплата через Stripe, скасування будь-коли.',
 }

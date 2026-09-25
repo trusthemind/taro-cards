@@ -77,6 +77,11 @@ function createMemoryKv(): Kv {
   }
 }
 
+const INCREMENT_SCRIPT = `
+local next = redis.call('INCR', KEYS[1])
+if next == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end
+return next`
+
 function createUpstashKv(url: string, token: string): Kv {
   async function command<T>(body: unknown[]): Promise<T> {
     const response = await fetch(url, {
@@ -114,10 +119,10 @@ function createUpstashKv(url: string, token: string): Kv {
       await command(['DEL', key])
     },
     async increment(key: string, ttlSeconds: number) {
-      const next = await command<number>(['INCR', key])
+      // One script so INCR and EXPIRE are atomic: as two requests, a failure
+      // between them left a counter with no TTL and the visitor blocked forever.
       // Only the first write in the window sets an expiry.
-      if (next === 1) await command(['EXPIRE', key, ttlSeconds])
-      return next
+      return command<number>(['EVAL', INCREMENT_SCRIPT, 1, key, ttlSeconds])
     },
     async decrement(key: string) {
       const next = await command<number>(['DECR', key])
@@ -142,7 +147,8 @@ export function getKv(): Kv {
     if (process.env.NODE_ENV === 'production') {
       console.warn(
         '[taros] UPSTASH_REDIS_REST_URL is not set — falling back to in-memory storage. ' +
-          'Subscriptions will be lost on restart and will not be shared between instances.',
+          'Quotas will not be shared between instances, and checkout stays disabled ' +
+          '(see isStripeConfigured).',
       )
     }
     cached = createMemoryKv()

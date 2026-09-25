@@ -47,16 +47,25 @@ export function ReadingTemplate() {
   const searchParams = useSearchParams()
   const router = useRouter()
 
-  const { refresh } = subscription
+  const { refresh, confirmCheckout } = subscription
   const checkoutResult = searchParams.get('checkout')
+  const checkoutSessionId = searchParams.get('session_id')
+  const [checkoutNotice, setCheckoutNotice] = useState<'confirmed' | 'pending' | null>(null)
 
-  // Returning from Stripe: re-read the entitlement, then drop the query param
-  // so a refresh doesn't replay the success state.
+  // Returning from Stripe: confirm the session (the webhook may not have landed
+  // yet), then drop the query params so a reload doesn't replay it.
   useEffect(() => {
     if (checkoutResult !== 'success') return
-    void refresh()
-    router.replace('/', { scroll: false })
-  }, [checkoutResult, refresh, router])
+    let cancelled = false
+    void confirmCheckout(checkoutSessionId).then(confirmed => {
+      if (cancelled) return
+      setCheckoutNotice(confirmed ? 'confirmed' : 'pending')
+      router.replace('/', { scroll: false })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [checkoutResult, checkoutSessionId, confirmCheckout, router])
 
   const handleStartShuffle = useCallback(() => {
     if (!subscription.isSubscribed && subscription.readingsLeft === 0) {
@@ -119,6 +128,25 @@ export function ReadingTemplate() {
           onManage={subscription.openBillingPortal}
         />
       </div>
+
+      {(subscription.isConfirming || checkoutNotice) && (
+        <div className="mx-auto mt-4 w-full max-w-lg px-4">
+          <p
+            role="status"
+            className={
+              checkoutNotice === 'pending'
+                ? 'rounded-xl border border-border/60 bg-surface-1/80 px-4 py-3 text-center font-serif text-sm text-muted-foreground'
+                : 'rounded-xl border border-gold/35 bg-gold/10 px-4 py-3 text-center font-serif text-sm text-foreground'
+            }
+          >
+            {subscription.isConfirming
+              ? 'Підтверджуємо оплату…'
+              : checkoutNotice === 'confirmed'
+                ? 'Дякуємо! Підписку активовано — Параска ворожить без обмежень.'
+                : 'Оплату отримано, підписка активується протягом хвилини. Оновіть сторінку, якщо ліміт не зник.'}
+          </p>
+        </div>
+      )}
 
       <main className="flex min-h-screen flex-col items-center px-4 py-10 sm:py-14">
         <motion.header

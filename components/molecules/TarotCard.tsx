@@ -107,7 +107,10 @@ export function TarotCard({
         className="min-h-[46px] text-center"
         initial={false}
         animate={{ opacity: isRevealed ? 1 : 0, y: isRevealed ? 0 : 6 }}
-        transition={{ delay: isRevealed && !reduceMotion ? 0.6 : 0, duration: 0.4 }}
+        transition={{
+          delay: isRevealed && !reduceMotion ? 0.6 : 0,
+          duration: reduceMotion ? 0 : 0.4,
+        }}
         aria-hidden={!isRevealed}
       >
         <p className="font-sans text-base font-semibold text-gold">{card.nameUa}</p>

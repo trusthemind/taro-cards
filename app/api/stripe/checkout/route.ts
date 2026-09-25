@@ -3,6 +3,7 @@ import { env, isStripeConfigured } from '@/lib/config/env'
 import { isPaidPlanId } from '@/lib/config/plans'
 import { requireVisitorId } from '@/lib/visitor'
 import { getStripe, priceIdForPlan, getSubscription } from '@/lib/subscription/server'
+import { isEntitled } from '@/lib/subscription/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,6 +29,19 @@ export async function POST(request: Request) {
 
   const visitorId = await requireVisitorId()
   const existing = await getSubscription(visitorId)
+
+  // A second Checkout would create a second, concurrent subscription and bill
+  // the visitor twice. Plan changes go through the billing portal instead,
+  // which updates the one subscription in place with proration.
+  if (isEntitled(existing)) {
+    return NextResponse.json(
+      {
+        error: 'У вас уже є активна підписка. Змінити тариф можна в кабінеті.',
+        code: 'already_subscribed',
+      },
+      { status: 409 },
+    )
+  }
 
   try {
     const session = await getStripe().checkout.sessions.create({
