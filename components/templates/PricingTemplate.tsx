@@ -8,6 +8,7 @@ import { useSubscription } from '@/lib/subscription/useSubscription'
 import { PricingPlans } from '@/components/organisms/PricingPlans'
 import { Starfield } from '@/components/atoms/Starfield'
 import { Ornament } from '@/components/atoms/Ornament'
+import { STRIPE_PORTAL_LOGIN_URL } from '@/lib/config/public'
 
 export function PricingTemplate() {
   const subscription = useSubscription()
@@ -76,7 +77,27 @@ export function PricingTemplate() {
           billingEnabled={subscription.billingEnabled}
           error={subscription.error}
           onSelect={subscription.subscribe}
+          onManage={subscription.openBillingPortal}
         />
+
+        {/*
+          Identity is a per-browser cookie, so a subscriber on a new device (or
+          after clearing cookies) looks like a guest here. Stripe's hosted
+          portal login is keyed on email and gets them back to their billing.
+        */}
+        {STRIPE_PORTAL_LOGIN_URL && !subscription.isSubscribed && (
+          <p className="mt-8 text-center font-serif text-sm text-muted-foreground">
+            Вже оплатили на іншому пристрої?{' '}
+            <a
+              href={STRIPE_PORTAL_LOGIN_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gold underline decoration-gold/40 underline-offset-4 transition-colors hover:decoration-gold"
+            >
+              Увійдіть у кабінет Stripe
+            </a>
+          </p>
+        )}
 
         <p className="mt-10 text-center font-serif text-xs text-muted-foreground/60">
           Платежі обробляє Stripe. Ми не зберігаємо дані вашої картки.

@@ -46,6 +46,8 @@ export async function POST(request: Request) {
       case 'customer.subscription.created':
       case 'customer.subscription.updated':
       case 'customer.subscription.deleted':
+      case 'customer.subscription.paused':
+      case 'customer.subscription.resumed':
         await handleSubscriptionChange(event.data.object, event.created)
         break
       default:

@@ -14,9 +14,15 @@ interface Props {
   isBusy: boolean
   disabled?: boolean
   onSelect: (plan: PaidPlanId) => void
+  /**
+   * Set when the visitor already has a subscription. Plan changes then go
+   * through the billing portal: a second Checkout would start a second,
+   * concurrent subscription.
+   */
+  onManage?: () => void
 }
 
-export function PlanCard({ plan, index, isCurrent, isBusy, disabled, onSelect }: Props) {
+export function PlanCard({ plan, index, isCurrent, isBusy, disabled, onSelect, onManage }: Props) {
   const reduceMotion = useReducedMotion()
   const payable = isPaidPlanId(plan.id)
 
@@ -24,7 +30,11 @@ export function PlanCard({ plan, index, isCurrent, isBusy, disabled, onSelect }:
     <motion.div
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: reduceMotion ? 0 : index * 0.09, duration: 0.5, ease: 'easeOut' }}
+      transition={
+        reduceMotion
+          ? { duration: 0 }
+          : { delay: index * 0.09, duration: 0.5, ease: 'easeOut' }
+      }
       className={cn(
         'relative flex flex-col overflow-hidden rounded-2xl border bg-card/70 p-6 backdrop-blur-sm',
         plan.highlighted
@@ -38,8 +48,8 @@ export function PlanCard({ plan, index, isCurrent, isBusy, disabled, onSelect }:
           size={110}
           duration={9}
           borderWidth={1.5}
-          colorFrom="oklch(0.89 0.13 88)"
-          colorTo="oklch(0.58 0.17 302)"
+          colorFrom="var(--gold-bright)"
+          colorTo="var(--accent)"
         />
       )}
 
@@ -92,7 +102,7 @@ export function PlanCard({ plan, index, isCurrent, isBusy, disabled, onSelect }:
           <button
             type="button"
             disabled={isBusy || disabled}
-            onClick={() => onSelect(plan.id as PaidPlanId)}
+            onClick={() => (onManage ? onManage() : onSelect(plan.id as PaidPlanId))}
             className={cn(
               'flex w-full items-center justify-center gap-2 rounded-xl px-5 py-3 font-sans text-sm font-bold tracking-wide transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50',
               plan.highlighted
@@ -101,7 +111,7 @@ export function PlanCard({ plan, index, isCurrent, isBusy, disabled, onSelect }:
             )}
           >
             {isBusy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-            {isBusy ? 'Відкриваємо Stripe…' : 'Обрати тариф'}
+            {isBusy ? 'Відкриваємо Stripe…' : onManage ? 'Змінити в кабінеті' : 'Обрати тариф'}
           </button>
         ) : (
           <p className="py-3 text-center font-serif text-sm text-muted-foreground">

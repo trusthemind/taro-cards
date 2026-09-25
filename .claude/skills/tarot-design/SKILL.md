@@ -124,3 +124,12 @@ in `components/atoms/ui/`. Afterwards:
 - Confirm it imports `motion/react` — this repo does **not** use `framer-motion`.
 - Confirm it imports `@/lib/utils`, and that anything re-exporting it points at
   `@/components/atoms/ui/<name>`.
+
+## Looking at the result
+
+`.mcp.json` also wires up the Playwright MCP (headless, isolated profile). After
+a UI change, start `pnpm dev` and walk the flow — idle → shuffle → select →
+reveal → chat → paywall → /pricing — at 1440×900 and 390×844. Check for
+horizontal overflow (`scrollWidth - innerWidth` must be 0), that the paywall
+traps focus and hands it back on Escape, and screenshot both viewports before
+calling it done.

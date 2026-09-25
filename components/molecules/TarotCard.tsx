@@ -41,7 +41,7 @@ export function TarotCard({
 
   return (
     <motion.div
-      className="flex flex-col items-center gap-3"
+      className="flex w-[104px] flex-col items-center gap-3 sm:w-[152px]"
       initial={{ opacity: 0, y: 40 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{
@@ -50,7 +50,7 @@ export function TarotCard({
         ease: 'easeOut',
       }}
     >
-      <span className="font-sans text-xs font-semibold uppercase tracking-[0.22em] text-gold/70">
+      <span className="font-sans text-[11px] font-semibold uppercase tracking-[0.12em] text-gold/70 sm:text-xs sm:tracking-[0.22em]">
         {POSITION_LABELS_UA[position]}
       </span>
 
@@ -65,7 +65,7 @@ export function TarotCard({
         disabled={isRevealed}
         onClick={() => !isRevealed && onReveal?.()}
         className={cn(
-          'perspective-1000 h-[210px] w-[128px] rounded-xl sm:h-[250px] sm:w-[152px]',
+          'perspective-1000 h-[172px] w-[104px] rounded-xl sm:h-[250px] sm:w-[152px]',
           !isRevealed && 'cursor-pointer',
           isRevealed && 'cursor-default',
         )}
@@ -113,7 +113,7 @@ export function TarotCard({
         }}
         aria-hidden={!isRevealed}
       >
-        <p className="font-sans text-base font-semibold text-gold">{card.nameUa}</p>
+        <p className="font-sans text-sm font-semibold leading-snug text-gold sm:text-base">{card.nameUa}</p>
         {card.suitUa && <p className="text-sm text-muted-foreground">{card.suitUa}</p>}
         {isReversed && <p className="mt-0.5 text-sm text-accent">↕ Перевернута</p>}
       </motion.div>

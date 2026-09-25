@@ -21,7 +21,7 @@ export function CardSpread({ cards, revealedCount, onRevealCard }: Props) {
       animate={{ opacity: 1 }}
       transition={{ duration: reduceMotion ? 0 : 0.4 }}
     >
-      <div className="flex flex-wrap justify-center gap-6 sm:gap-10">
+      <div className="flex flex-wrap justify-center gap-3 sm:gap-10">
         {cards.map((item, i) => (
           <TarotCard
             key={item.card.id}

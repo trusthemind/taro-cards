@@ -94,7 +94,7 @@ pnpm test             # в іншому — typecheck + обидва локал�
 
 ```bash
 pnpm typecheck        # tsc --noEmit
-pnpm test:api         # 43 перевірки API загалом
+pnpm test:api         # 49 перевірок API загалом
 pnpm test:stripe      # 44 перевірки логіки платежів
 pnpm test:clock       # життєвий цикл підписки на реальному test clock
 ```
@@ -163,3 +163,6 @@ pnpm dlx shadcn@latest add @magicui/border-beam
 ```
 
 Анімації — `motion` (не `framer-motion`), утиліти — `@/lib/utils`, примітиви shadcn — `@/components/atoms/ui`.
+
+Там же підключено **Playwright MCP** (headless), щоб агенти могли відкрити
+`pnpm dev` у браузері, пройти сценарій і зробити скріншоти на desktop і mobile.

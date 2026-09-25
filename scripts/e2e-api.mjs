@@ -199,6 +199,19 @@ console.log('\n== 5. Stripe checkout + portal guards ==')
 
   const p = await req(jar, '/api/stripe/portal', { method: 'POST' })
   check('portal returns 404 without a subscription', p.status === 404, `got ${p.status}`)
+
+  // /api/stripe/confirm: every guard here fires before Stripe is called.
+  const confirm = (j, body) => req(j, '/api/stripe/confirm', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body,
+  })
+  const c1 = await confirm(jar, JSON.stringify({ sessionId: 'sub_not_a_session' }))
+  check('confirm rejects a non-Checkout session id', c1.status === 400, `got ${c1.status}`)
+  const c2 = await confirm(jar, JSON.stringify({}))
+  check('confirm rejects a missing session id', c2.status === 400, `got ${c2.status}`)
+  const c3 = await confirm(jar, 'not json')
+  check('confirm rejects malformed JSON', c3.status === 400, `got ${c3.status}`)
+  const c4 = await confirm(makeJar(), JSON.stringify({ sessionId: 'cs_test_someone_elses' }))
+  check('confirm returns 404 without a visitor cookie', c4.status === 404, `got ${c4.status}`)
 }
 
 console.log('\n== 6. Webhook signature verification ==')
@@ -255,6 +268,13 @@ console.log('\n== 7. Webhook grants and revokes entitlement ==')
     body: JSON.stringify({ messages: [userMsg('розкажи')], spread: SPREAD }),
   })
   check('subscriber bypasses the daily quota', t.status === 200, `got ${t.status}`)
+
+  // A second Checkout would start a concurrent subscription and double-bill.
+  const dup = await req(jar, '/api/stripe/checkout', {
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ plan: 'yearly' }),
+  })
+  check('checkout refuses a second subscription (409)', dup.status === 409, `got ${dup.status}`)
+  check('409 carries code already_subscribed', dup.json?.code === 'already_subscribed', JSON.stringify(dup.json))
 
   // Portal now resolves the customer.
   const p = await req(jar, '/api/stripe/portal', { method: 'POST' })

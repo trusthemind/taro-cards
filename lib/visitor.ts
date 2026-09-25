@@ -11,9 +11,17 @@ import { env } from '@/lib/config/env'
  * the Stripe `client_reference_id`. The signature stops a visitor from typing in
  * somebody else's id and inheriting their subscription.
  *
- * Trade-off worth knowing: identity is per-browser. Clearing cookies loses
- * access, and the Stripe billing portal is the recovery path. Swap this module
- * for real auth when accounts are introduced.
+ * Trade-off worth knowing: identity is per-browser. Clearing cookies (or
+ * switching device) mints a new, unrelated id, so `/api/stripe/portal` can no
+ * longer find the customer and paid access is not restored here. The only
+ * cookie-independent path today is Stripe's hosted portal login link
+ * (`NEXT_PUBLIC_STRIPE_PORTAL_LOGIN_URL`, email-based), linked from /pricing:
+ * the customer can still see and cancel the subscription there, so they are
+ * never stuck paying for something they can't manage.
+ *
+ * Next step: real identity (email magic link or OAuth). Key subscriptions by
+ * account id instead of this cookie, and on sign-in attach any subscription
+ * whose Stripe customer email matches. Swap this module out when that lands.
  */
 
 const COOKIE_NAME = 'taros_vid'

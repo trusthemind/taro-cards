@@ -10,6 +10,8 @@ interface Props {
   billingEnabled: boolean
   error?: string | null
   onSelect: (plan: PaidPlanId) => void
+  /** Opens the billing portal; used for plan changes once subscribed. */
+  onManage: () => void
 }
 
 export function PricingPlans({
@@ -18,6 +20,7 @@ export function PricingPlans({
   billingEnabled,
   error,
   onSelect,
+  onManage,
 }: Props) {
   return (
     <div className="w-full">
@@ -50,6 +53,7 @@ export function PricingPlans({
             isBusy={isBusy}
             disabled={!billingEnabled}
             onSelect={onSelect}
+            onManage={currentPlan ? onManage : undefined}
           />
         ))}
       </div>
