@@ -13,9 +13,14 @@
   "aliases": {
     "components": "@/components",
     "utils": "@/lib/utils",
-    "ui": "@/components/ui",
+    "ui": "@/components/atoms/ui",
     "lib": "@/lib",
-    "hooks": "@/hooks"
+    "hooks": "@/lib/hooks"
   },
-  "iconLibrary": "lucide"
+  "iconLibrary": "lucide",
+  "registries": {
+    "@magicui": "https://magicui.design/r/{name}.json",
+    "@aceternity": "https://ui.aceternity.com/registry/{name}.json",
+    "@tweakcn": "https://tweakcn.com/r/themes/{name}.json"
+  }
 }

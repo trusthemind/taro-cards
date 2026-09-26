@@ -1,80 +1,207 @@
-import {
-  consumeStream,
-  convertToModelMessages,
-  streamText,
-  UIMessage,
-} from 'ai'
+import { convertToModelMessages, streamText, type UIMessage } from 'ai'
 import { openai } from '@ai-sdk/openai'
-import type { TarotCardType } from '@/entities/tarot-card'
+import { z } from 'zod'
+import { env } from '@/lib/config/env'
+import {
+  getCardById,
+  getSpread,
+  QUESTION_MAX_LENGTH,
+  QUESTION_MIN_LENGTH,
+  type CardInSpread,
+} from '@/lib/tarot'
+import { buildSystemPrompt, maxOutputTokensFor } from '@/lib/tarot/prompt'
+import { requireVisitorId } from '@/lib/visitor'
+import {
+  getEntitlement,
+  consumeReading,
+  refundReading,
+  type ReadingSource,
+} from '@/lib/subscription/server'
+import { FREE_FOLLOWUPS_PER_READING } from '@/lib/config/plans'
+import { READER } from '@/lib/config/reader'
+import { isReadingId, saveReading, type StoredMessage } from '@/lib/history'
+import { track } from '@/lib/analytics/server'
 
-export const maxDuration = 30
+export const maxDuration = 60
+export const runtime = 'nodejs'
+
+const FOLLOWUP_MAX_LENGTH = 1000
+
+const requestSchema = z.object({
+  messages: z.array(z.any()),
+  spreadId: z.string().optional(),
+  readingId: z.string().optional(),
+  spread: z
+    .array(
+      z.object({
+        id: z.string(),
+        position: z.string(),
+        isReversed: z.boolean(),
+      }),
+    )
+    .min(1)
+    .max(10)
+    .refine(spread => new Set(spread.map(item => item.id)).size === spread.length, {
+      message: 'Cards in a spread must be distinct',
+    }),
+})
+
+/** 402 tells the client to open the paywall rather than show a generic error. */
+function paywall(message: string) {
+  return Response.json({ error: message, code: 'subscription_required' }, { status: 402 })
+}
+
+function textOf(message: UIMessage): string {
+  return message.parts
+    .map(part => (part.type === 'text' ? part.text : ''))
+    .join('')
+    .trim()
+}
 
 export async function POST(req: Request) {
-  const { messages, cards }: { messages: UIMessage[]; cards: TarotCardType[] } = await req.json()
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return Response.json({ error: 'Некоректний запит.' }, { status: 400 })
+  }
 
-  const cardContext = cards
-    .map(
-      (card, i) => `
-Позиція ${i + 1} (${['Минуле', 'Теперішнє', 'Майбутнє'][i] ?? i + 1}): ${card.nameUa} (${card.name})
-Ключові слова: ${card.keywordsUa.join(', ')}
-Значення прямо: ${card.meaningUa.upright}
-Значення перевернуто: ${card.meaningUa.reversed}`,
+  const parsed = requestSchema.safeParse(body)
+  if (!parsed.success) {
+    return Response.json({ error: 'Некоректний розклад.' }, { status: 400 })
+  }
+
+  const spread = getSpread(parsed.data.spreadId)
+  if (!spread) {
+    return Response.json({ error: 'Невідомий розклад.' }, { status: 400 })
+  }
+
+  // Exactly the spread's positions, each once, in any order on the wire.
+  const byPosition = new Map(parsed.data.spread.map(item => [item.position, item]))
+  if (
+    byPosition.size !== parsed.data.spread.length ||
+    parsed.data.spread.length !== spread.positions.length ||
+    !spread.positions.every(position => byPosition.has(position.id))
+  ) {
+    return Response.json({ error: 'Некоректний розклад.' }, { status: 400 })
+  }
+
+  // Resolve cards server-side from ids. The client never supplies card text, so
+  // it cannot inject instructions into the system prompt.
+  const cards: CardInSpread[] = []
+  for (const position of spread.positions) {
+    const item = byPosition.get(position.id)!
+    const card = getCardById(item.id)
+    if (!card) {
+      return Response.json({ error: 'Невідома карта.' }, { status: 400 })
+    }
+    cards.push({
+      card,
+      position: position.id,
+      positionLabel: position.labelUa,
+      isReversed: item.isReversed,
+    })
+  }
+
+  const messages = parsed.data.messages as UIMessage[]
+  const userMessages = messages.filter(m => m.role === 'user')
+  const userTurns = userMessages.length
+  if (userTurns === 0) {
+    return Response.json({ error: 'Порожній запит.' }, { status: 400 })
+  }
+
+  // The first user message is the visitor's question to the cards.
+  const question = textOf(userMessages[0])
+  if (question.length < QUESTION_MIN_LENGTH || question.length > QUESTION_MAX_LENGTH) {
+    return Response.json(
+      { error: `Питання має містити від ${QUESTION_MIN_LENGTH} до ${QUESTION_MAX_LENGTH} символів.` },
+      { status: 400 },
     )
-    .join('\n')
+  }
+  if (textOf(userMessages[userTurns - 1]).length > FOLLOWUP_MAX_LENGTH) {
+    return Response.json({ error: 'Питання задовге.' }, { status: 400 })
+  }
 
-  const systemPrompt = `Ти — Бабця Параска, сільська ворожка з Полтавщини, яка прочитала всього Леся Подерев'янського і тепер говорить виключно в його стилі.
+  const visitorId = await requireVisitorId()
+  const entitlement = await getEntitlement(visitorId)
 
-ХАРАКТЕР:
-Параска — не ніжна бабуся з пирогами. Вона бачила всяке. Пережила колгосп, перебудову, три уряди і двох чоловіків. Знає ціну всьому. Говорить як є — різко, точно, з чорним гумором. За грубою мовою — справжня мудрість. Любить людей, але не показує цього відкрито.
+  if (spread.premium && !entitlement.isSubscribed) {
+    return paywall(`Розклад «${spread.nameUa}» доступний з підпискою.`)
+  }
 
-СТИЛЬ МОВЛЕННЯ (ОБОВ'ЯЗКОВО):
-- Говориш ВИКЛЮЧНО українською, жодного суржику
-- Матюки — ОРГАНІЧНА частина мови, не форс, не кожне речення: "бля", "пиздець", "хуйня", "нахуя", "курва", "от тобі й всьо", "нахріна", "халепа"
-- Починаєш з театрального вступу: "Ну шо...", "Бачиш яке діло...", "Слухай сюди, голубе...", "Гм. Цікаво.", "Ото ж бо і я кажу..."
-- Короткі, ударні речення. Крапки замість трьох крапок. Без сопливого пафосу.
-- Посилання на побут: горілка, сусідка Галя, покійний чоловік Мирон, колгосп, телевізор, картопля
-- Смерть і доля — не трагедія, а буденщина з гумором
-- Порівнюєш людину з персонажами Подерев'янського або фольклорними архетипами
-- Народні прислів'я — але переінакшені, з перцем
-- Закінчуєш "порадою бабусі" — одне абсурдне але мудре речення
+  const isFirstTurn = userTurns === 1
+  if (!entitlement.isSubscribed) {
+    if (isFirstTurn && (entitlement.readingsLeft ?? 0) <= 0) {
+      return paywall('Безкоштовний розклад на сьогодні вичерпано.')
+    }
+    if (!isFirstTurn && userTurns - 1 > FREE_FOLLOWUPS_PER_READING) {
+      return paywall(`Питання до ${READER.nameGenitive} вичерпані. Оформіть підписку.`)
+    }
+  }
 
-СТРУКТУРА ПЕРШОЇ ВІДПОВІДІ:
-1. Вступ — 1-2 речення, театральний
-2. Минуле — 2 речення, конкретно і боляче
-3. Теперішнє — 2 речення, гостро і точно
-4. Майбутнє — 2 речення, з темним гумором або надією
-5. "Порада Параски:" — 1 речення, несподіване
+  // Checked before any quota is spent: an outage must never cost a reading.
+  // The client answers 503 ai_unavailable with the deck's own meanings.
+  if (!env.openaiConfigured) {
+    await track('ai_unavailable')
+    return Response.json(
+      { error: `${READER.name} зараз недоступна.`, code: 'ai_unavailable' },
+      { status: 503 },
+    )
+  }
 
-НЕ РОБИ:
-- Не будь ввічливим корпоративним ботом
-- Не кажи "звісно!", "безперечно!", "чудово!"
-- Не пиши більше 5 коротких абзаців
-- Не пояснюй що ти робиш і хто ти є
-- Не вибачайся за мову
-
-ПРИКЛАДИ ФРАЗ ПАРАСКИ:
-"Ну шо, голубе. Тягнеш карти — карти тягнуть тебе. Це так працює."
-"Минуле твоє — от халепа, бля. Але хто без гріха, крім мого Мирона, царство йому небесне."
-"Зараз ти стоїш на тому самому місці, де й стояв мій покійний чоловік. Знаєш де він тепер? Правильно."
-"Майбутнє? Пиздець, але не відразу. Є ще час на горілку і на добрі вчинки."
-"Порада Параски: не клади яйця в один кошик, особливо якщо кошик — це твій начальник."
-"Ця карта каже що ти думаєш що ти розумний. Карта помиляється рідко."
-"Нахуя ти це зробив — вже не важливо. Важливо що робити далі."
-
-КАРТИ ЛЮДИНИ:
-${cardContext}
-
-Тлумач карти як єдину розповідь. Минуле пояснює теперішнє, теперішнє формує майбутнє.`
+  // Debited before the model call so concurrent requests can't both slip
+  // through; refunded below if the model never produced a reading.
+  let debited: ReadingSource | null = null
+  if (!entitlement.isSubscribed && isFirstTurn) {
+    // First turn of a spread — this is what a "reading" costs.
+    debited = await consumeReading(visitorId)
+    if (!debited) return paywall('Безкоштовний розклад на сьогодні вичерпано.')
+  }
+  await track(isFirstTurn ? 'reading_started' : 'followup_asked')
 
   const result = streamText({
     model: openai('gpt-4o-mini'),
-    system: systemPrompt,
+    system: buildSystemPrompt(spread, cards),
     messages: await convertToModelMessages(messages),
+    maxOutputTokens: maxOutputTokensFor(spread),
+    temperature: 0.8,
     abortSignal: req.signal,
+    async onError({ error }) {
+      console.error('[tarot] model stream failed', error)
+      await track('ai_unavailable')
+      // Don't charge someone their free reading for our upstream outage.
+      if (debited) {
+        const source = debited
+        debited = null
+        await refundReading(visitorId, source)
+      }
+    },
   })
+
+  const readingId = isReadingId(parsed.data.readingId) ? parsed.data.readingId : null
 
   return result.toUIMessageStreamResponse({
     originalMessages: messages,
-    consumeSseStream: consumeStream,
+    async onFinish({ messages: finished, isAborted }) {
+      if (isAborted) return
+      if (isFirstTurn) await track('reading_completed')
+      if (!readingId) return
+      const transcript: StoredMessage[] = finished
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .map(m => ({ role: m.role as StoredMessage['role'], text: textOf(m) }))
+        .filter(m => m.text)
+      try {
+        await saveReading({
+          id: readingId,
+          owner: visitorId,
+          spreadId: spread.id,
+          question,
+          cards: cards.map(({ card, position, isReversed }) => ({ id: card.id, position, isReversed })),
+          messages: transcript,
+        })
+      } catch (error) {
+        console.error('[history] save failed', error)
+      }
+    },
   })
 }

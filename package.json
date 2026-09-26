@@ -1,12 +1,18 @@
 {
-  "name": "my-project",
-  "version": "0.1.0",
+  "name": "taros",
+  "version": "1.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test:api": "node --env-file-if-exists=.env.local scripts/e2e-api.mjs",
+    "typecheck": "tsc --noEmit",
+    "test:stripe": "node --env-file-if-exists=.env.local scripts/stripe-webhook.test.mjs",
+    "test:clock": "node --env-file-if-exists=.env.local scripts/stripe-clock.test.mjs",
+    "stripe:setup": "node --env-file-if-exists=.env.local scripts/stripe-setup.mjs",
+    "test": "pnpm typecheck && pnpm test:api && pnpm test:stripe"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.48",
@@ -47,9 +53,9 @@
     "cmdk": "1.1.1",
     "date-fns": "4.1.0",
     "embla-carousel-react": "8.6.0",
-    "framer-motion": "^12.38.0",
     "input-otp": "1.4.2",
     "lucide-react": "^0.564.0",
+    "motion": "^13.2.0",
     "next": "16.2.0",
     "next-themes": "^0.4.6",
     "react": "19.2.4",
@@ -58,7 +64,9 @@
     "react-hook-form": "^7.54.1",
     "react-resizable-panels": "^2.1.7",
     "recharts": "2.15.0",
+    "server-only": "^0.0.1",
     "sonner": "^1.7.1",
+    "stripe": "^22.6.1",
     "tailwind-merge": "^3.3.1",
     "vaul": "^1.1.2",
     "zod": "^3.24.1"
