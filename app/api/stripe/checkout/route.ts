@@ -54,11 +54,13 @@ export async function POST(request: Request) {
       mode: 'subscription',
       line_items: [{ price: priceIdForPlan(plan), quantity: 1 }],
       // Reuse the customer so repeat purchases don't fragment billing history.
+      // Subscription mode always creates a customer otherwise; Stripe rejects
+      // `customer_creation` here (it is payment/setup mode only).
       ...(existing?.customerId
         ? { customer: existing.customerId }
         : account
           ? { customer_email: account.email }
-          : { customer_creation: 'always' as const }),
+          : {}),
       client_reference_id: visitorId,
       metadata: { visitorId, plan },
       subscription_data: {

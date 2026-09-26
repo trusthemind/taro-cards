@@ -202,7 +202,15 @@ console.log('\n== 5. Stripe checkout + portal guards ==')
   const r3 = await req(jar, '/api/stripe/checkout', {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ plan: 'monthly' }),
   })
-  check('checkout surfaces upstream Stripe failure as 502 (dummy key)', r3.status === 502, `got ${r3.status} ${r3.text.slice(0,80)}`)
+  // With a real sandbox key and real prices (`pnpm stripe:setup`) this is the
+  // anonymous first purchase, the one that must work: it once sent
+  // `customer_creation`, which Stripe rejects in subscription mode.
+  const liveStripe = /^sk_test_/.test(process.env.STRIPE_SECRET_KEY ?? '') && !PRICE_MONTHLY.startsWith('price_test_')
+  if (liveStripe) {
+    check('anonymous checkout opens a Stripe Checkout session', r3.status === 200 && /^https:\/\/checkout\.stripe\.com\//.test(r3.json?.url ?? ''), `got ${r3.status} ${r3.text.slice(0,120)}`)
+  } else {
+    check('checkout surfaces upstream Stripe failure as 502 (dummy key)', r3.status === 502, `got ${r3.status} ${r3.text.slice(0,80)}`)
+  }
 
   const p = await req(jar, '/api/stripe/portal', { method: 'POST' })
   check('portal returns 404 without a subscription', p.status === 404, `got ${p.status}`)
