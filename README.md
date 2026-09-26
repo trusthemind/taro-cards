@@ -117,16 +117,34 @@ httpOnly-куках (`lib/visitor.ts`). Акаунт — це `email → кан�
 
 ### Налаштування Stripe
 
-1. Створіть продукт і **два** recurring-прайси (місячний і річний).
-   Їх id — у `STRIPE_PRICE_MONTHLY` / `STRIPE_PRICE_YEARLY`.
-2. Увімкніть Billing Portal: Dashboard → Settings → Billing → Customer portal.
-3. Локальний вебхук:
-   ```bash
-   stripe listen --forward-to localhost:3000/api/stripe/webhook
-   ```
-   `whsec_...`, який він надрукує, покладіть у `STRIPE_WEBHOOK_SECRET`.
-4. На проді додайте endpoint `https://<домен>/api/stripe/webhook` на події
-   `checkout.session.completed` та `customer.subscription.*`.
+Усе, що потрібно в Stripe, створює один скрипт. Його можна запускати скільки
+завгодно разів: він знаходить уже створене й нічого не дублює.
+
+```bash
+pnpm stripe:setup                        # sandbox-ключ з .env.local
+pnpm stripe:setup --webhook-url=https://<домен>/api/stripe/webhook
+pnpm stripe:setup --dry-run              # лише показати, нічого не писати
+pnpm stripe:setup --live                 # обов'язково для sk_live_
+```
+
+Він створює:
+- продукт і дві ціни в UAH з lookup keys `taros_monthly` / `taros_yearly`.
+  Якщо змінити суму в скрипті, з'явиться нова ціна, а наявні підписники
+  лишаться на старій;
+- конфігурацію Billing Portal: зміна тарифу з перерахунком, скасування в кінці
+  періоду з причиною, оновлення картки, рахунки, вхід у портал за email;
+- (з `--webhook-url`) webhook на потрібні події. Його секрет Stripe показує
+  лише при створенні, тому скрипт записує його саме тоді.
+
+Скрипт записує в `.env.local` змінні `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_YEARLY`,
+`STRIPE_PORTAL_CONFIGURATION`, `NEXT_PUBLIC_STRIPE_PORTAL_LOGIN_URL` і,
+за наявності, `STRIPE_WEBHOOK_SECRET`. Ті самі значення перенесіть у Vercel.
+
+Локальний webhook без публічної адреси:
+```bash
+stripe listen --forward-to localhost:3000/api/stripe/webhook
+```
+`whsec_...`, який він надрукує, покладіть у `STRIPE_WEBHOOK_SECRET`.
 
 ### Зберігання
 

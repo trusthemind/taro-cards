@@ -16,7 +16,11 @@ import { createServer } from 'node:http'
 const DAY = 86400
 const HOUR = 3600
 
-const db = { clocks: new Map(), customers: new Map(), subs: new Map(), invoices: [], events: [] }
+const db = {
+  clocks: new Map(), customers: new Map(), subs: new Map(), invoices: [], events: [],
+  // Catalogue objects, for scripts/stripe-setup.mjs.
+  products: new Map(), prices: new Map(), portals: new Map(), webhooks: new Map(),
+}
 let n = 0
 const id = p => `${p}_${(++n).toString(36)}${Date.now().toString(36)}`
 
@@ -115,9 +119,55 @@ const server = createServer((req, res) => {
     const form = req.method === 'POST' ? parseForm(body) : {}
     const m = re => path.match(re)
 
+    // ── catalogue (stripe-setup.mjs) ──
+    const list = data => send(res, 200, { object: 'list', data, has_more: false })
+    const created = (map, prefix, object, extra = {}) => {
+      const item = { id: id(prefix), object, active: true, ...form, ...extra }
+      map.set(item.id, item)
+      return send(res, 200, item)
+    }
+    if (path === '/v1/products' && req.method === 'GET') return list([...db.products.values()])
+    if (path === '/v1/products' && req.method === 'POST') return created(db.products, 'prod', 'product')
+
+    if (path === '/v1/prices' && req.method === 'GET') {
+      const keys = [...url.searchParams].filter(([k]) => k.startsWith('lookup_keys')).map(([, v]) => v)
+      return list([...db.prices.values()].filter(p => p.active && (!keys.length || keys.includes(p.lookup_key))))
+    }
+    if (path === '/v1/prices' && req.method === 'POST') {
+      if (form.transfer_lookup_key === 'true') {
+        for (const p of db.prices.values()) if (p.lookup_key === form.lookup_key) p.lookup_key = null
+      }
+      return created(db.prices, 'price', 'price', {
+        unit_amount: Number(form.unit_amount),
+        recurring: { interval: form.recurring.interval, interval_count: 1 },
+      })
+    }
+
+    if (path === '/v1/billing_portal/configurations' && req.method === 'GET') return list([...db.portals.values()])
+    const portalJson = item => ({ ...item, login_page: { enabled: true, url: `https://billing.stripe.com/p/login/test_${item.id}` } })
+    if (path === '/v1/billing_portal/configurations' && req.method === 'POST') {
+      const item = { id: id('bpc'), object: 'billing_portal.configuration', active: true, ...form }
+      db.portals.set(item.id, item)
+      return send(res, 200, portalJson(item))
+    }
+    let hit = m(/^\/v1\/billing_portal\/configurations\/([^/]+)$/)
+    if (hit && req.method === 'POST') {
+      const item = Object.assign(db.portals.get(hit[1]), form)
+      return send(res, 200, portalJson(item))
+    }
+
+    if (path === '/v1/webhook_endpoints' && req.method === 'GET') {
+      return list([...db.webhooks.values()].map(({ secret, ...rest }) => rest))
+    }
+    if (path === '/v1/webhook_endpoints' && req.method === 'POST') {
+      return created(db.webhooks, 'we', 'webhook_endpoint', { secret: 'whsec_stub_' + Date.now() })
+    }
+    hit = m(/^\/v1\/webhook_endpoints\/([^/]+)$/)
+    if (hit && req.method === 'POST') return send(res, 200, Object.assign(db.webhooks.get(hit[1]), form))
+
     // ── prices ──
-    let hit = m(/^\/v1\/prices\/(.+)$/)
-    if (hit && req.method === 'GET') return send(res, 200, price(hit[1]))
+    hit = m(/^\/v1\/prices\/(.+)$/)
+    if (hit && req.method === 'GET') return send(res, 200, db.prices.get(hit[1]) ?? price(hit[1]))
 
     // ── test clocks ──
     if (path === '/v1/test_helpers/test_clocks' && req.method === 'POST') {

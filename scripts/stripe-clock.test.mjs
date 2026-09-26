@@ -104,7 +104,7 @@ async function resolvePrices() {
     if (!id || id.startsWith('price_test_')) {
       bail(
         `STRIPE_PRICE_${name.toUpperCase()} is not a real price id (got ${id ?? 'unset'}).\n` +
-          'Run `pnpm test:clock --bootstrap-prices` to create a pair, or set your own.',
+          'Run `pnpm stripe:setup` (or `pnpm test:clock --bootstrap-prices`) to create a pair.',
       )
     }
     const price = await stripe.prices.retrieve(id).catch(() => null)

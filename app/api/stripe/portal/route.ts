@@ -22,6 +22,9 @@ export async function POST() {
     const session = await getStripe().billingPortal.sessions.create({
       customer: record.customerId,
       return_url: `${env.appUrl}/`,
+      // The configuration `pnpm stripe:setup` creates (plan switching, cancel
+      // reasons); without it Stripe falls back to the Dashboard default.
+      ...(env.stripePortalConfiguration ? { configuration: env.stripePortalConfiguration } : {}),
     })
     return NextResponse.json({ url: session.url })
   } catch (error) {

@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test:stripe": "node --env-file-if-exists=.env.local scripts/stripe-webhook.test.mjs",
     "test:clock": "node --env-file-if-exists=.env.local scripts/stripe-clock.test.mjs",
+    "stripe:setup": "node --env-file-if-exists=.env.local scripts/stripe-setup.mjs",
     "test": "pnpm typecheck && pnpm test:api && pnpm test:stripe"
   },
   "dependencies": {

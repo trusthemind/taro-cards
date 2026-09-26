@@ -37,6 +37,10 @@ export const env = {
   get stripePriceYearly() {
     return required('STRIPE_PRICE_YEARLY')
   },
+  /** Billing-portal configuration id from `pnpm stripe:setup`. Optional. */
+  get stripePortalConfiguration() {
+    return optional('STRIPE_PORTAL_CONFIGURATION')
+  },
   get sessionSecret() {
     // Falls back to the Stripe secret so local dev works with one less variable.
     return optional('SESSION_SECRET') ?? required('STRIPE_SECRET_KEY')
