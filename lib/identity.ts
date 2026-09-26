@@ -1,6 +1,6 @@
 import 'server-only'
 import { isStripeConfigured } from '@/lib/config/env'
-import { signIn, type SignInResult } from '@/lib/account'
+import { aliasVisitor, signIn, type SignInResult } from '@/lib/account'
 import { mergeHistory } from '@/lib/history'
 import { readVisitorId, adoptVisitorId } from '@/lib/visitor'
 import {
@@ -36,6 +36,12 @@ async function adoptStripeSubscriptionByEmail(email: string, visitorId: string):
       if (live) {
         await saveSubscription(toSubscriptionRecord(live, visitorId, null))
         await linkCustomer(customer.id, visitorId)
+        // Webhooks prefer the subscription's metadata over the customer
+        // mapping, and that still names the lost anonymous id. Without the
+        // alias every later event (renewal, cancel, past_due) would update the
+        // orphan and the account would lapse at the first period end.
+        const paidAs = live.metadata?.visitorId
+        if (paidAs) await aliasVisitor(paidAs, visitorId)
         return true
       }
     }

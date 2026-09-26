@@ -75,6 +75,18 @@ export async function resolveVisitorAlias(visitorId: string): Promise<string> {
 }
 
 /**
+ * Points an anonymous visitor id at an account's canonical id, so Stripe
+ * objects whose metadata names the old id land on the account. Refuses when
+ * `from` is itself an account's id: that data is not ours to redirect.
+ */
+export async function aliasVisitor(from: string, to: string): Promise<boolean> {
+  if (from === to) return false
+  if (await getKv().get<string>(key.emailByVisitor(from))) return false
+  await getKv().set(key.alias(from), to, ALIAS_TTL)
+  return true
+}
+
+/**
  * Counts a sign-in request for this email and this client address.
  * @returns false once either hourly limit is exceeded — per email so one
  *   inbox can't be flooded, per address so one client can't spray many.
@@ -127,9 +139,7 @@ export async function signIn(email: string, currentVisitorId: string | null): Pr
       currentVisitorId && currentVisitorId !== existing.visitorId ? currentVisitorId : null
     // A browser signed into account A that now signs into B must not hand A's
     // data to B: only an anonymous id is carried over and aliased.
-    const belongsToAccount = other ? await getKv().get<string>(key.emailByVisitor(other)) : null
-    const previous = other && !belongsToAccount ? other : null
-    if (previous) await getKv().set(key.alias(previous), existing.visitorId, ALIAS_TTL)
+    const previous = other && (await aliasVisitor(other, existing.visitorId)) ? other : null
     return { account: existing, previousVisitorId: previous, created: false }
   }
 
